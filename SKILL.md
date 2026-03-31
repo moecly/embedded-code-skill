@@ -12,80 +12,73 @@ description: 嵌入式烧录调试闭环 - 支持 J-Link/ST-Link/CMSIS-DAP 自�
 3. **调试闭环**：烧录 → 监控 → 分析 → 修改 → 循环（最多3次）
 4. **日志记录**：每次循环保存详细日志
 
-## 执行流程
-
-### 步骤 1：环境检测
-
-执行检测脚本，发现可用的：
-- 烧录器（JLink/STLink/CMSIS-DAP）
-- 串口设备
-
-### 步骤 2：用户选择设备
-
-展示检测到的设备列表，用户选择：
-- 烧录器类型
-- 烧录文件路径
-- 串口端口
-
-### 步骤 3：加载配置
-
-从 `configs/project.yaml` 加载项目配置（若无则创建模板）。
-
-### 步骤 4：进入调试闭环
-
-```
-┌─────────────────────────────────────────────┐
-│  循环 (最多3次)                              │
-│                                             │
-│  1. 编译固件                                 │
-│  2. 烧录到芯片                               │
-│  3. 重置芯片                                 │
-│  4. 监控串口输出                             │
-│  5. 分析输出是否正常                          │
-│                                             │
-│  ├─ 正常 → 成功退出                          │
-│  └─ 异常 → 询问用户修改指令                   │
-│              ↓                              │
-│         用户提供修改要求 → 修改代码            │
-│              ↓                              │
-│         继续下一轮循环                        │
-└─────────────────────────────────────────────┘
-```
-
-### 步骤 5：处理失败
-
-3次失败后：
-1. 生成详细报告 (`logs/report_N.md`)
-2. 列出失败原因
-3. 提示用户手动介入
-
 ---
 
-# 命令
+# Agent 使用指南
 
-## 启动调试
+## 重要：必须先检测设备！
 
-```
-/flash
-```
-
-## 快速烧录（跳过监控）
+使用 skill 前，**必须**先执行检测脚本获取环境信息：
 
 ```
-/flash --no-monitor
+python "SKILL_DIR/workflows/detect.py" --json
 ```
 
-## 指定配置
+SKILL_DIR = `C:\Users\m\.config\opencode\skills\embedd-code-skill`
 
-```
-/flash --config path/to/project.yaml
+## 检测脚本输出格式
+
+```json
+{
+  "flashers": [
+    {
+      "type": "jlink",
+      "available": true,
+      "path": "JLink.exe",
+      "status": "connected"
+    },
+    {
+      "type": "stlink",
+      "available": false,
+      "reason": "STLink executable not found"
+    },
+    {
+      "type": "cmsis_dap",
+      "available": true,
+      "path": "openocd.exe",
+      "status": "connected"
+    }
+  ],
+  "serial_ports": [
+    {
+      "port": "COM3",
+      "description": "USB Serial Device"
+    }
+  ],
+  "summary": {
+    "total_flashers_found": 2,
+    "total_serial_ports": 1
+  }
+}
 ```
 
 ---
 
-# 配置文件格式
+## 完整调试流程
 
-`configs/project.yaml`:
+### 步骤 1：检测设备（必须）
+
+```bash
+python "C:\Users\m\.config\opencode\skills\embedd-code-skill\workflows\detect.py" --json
+```
+
+根据检测结果：
+- 选择可用的烧录器类型（jlink/stlink/cmsis_dap）
+- 选择对应的串口端口
+
+### 步骤 2：配置项目
+
+创建或修改 `configs/project.yaml`：
 
 ```yaml
 project:
@@ -94,13 +87,13 @@ project:
   output: "build/firmware.elf"
 
 flasher:
-  type: "jlink"        # jlink / stlink / cmsis_dap
+  type: "jlink"        # 根据检测结果选择：jlink / stlink / cmsis_dap
   device: "STM32F103RC"
   speed: 4000
   interface: "SWD"
 
 serial:
-  port: "COM3"
+  port: "COM3"         # 根据检测结果选择
   baudrate: 115200
   timeout: 5
 
@@ -108,6 +101,31 @@ debug:
   max_retries: 3
   log_dir: "logs"
 ```
+
+### 步骤 3：启动调试闭环
+
+```bash
+python "C:\Users\m\.config\opencode\skills\embedd-code-skill\workflows\debug_loop.py" --config configs/project.yaml
+```
+
+### 步骤 4：分析输出
+
+1. 观察串口输出
+2. 根据用户提供的修改指令修改代码
+3. 自动重新编译、烧录、监控
+4. 循环最多 3 次
+5. 3 次失败后生成报告，提示用户手动介入
+
+---
+
+## 脚本路径速查
+
+| 功能 | 路径 |
+|------|------|
+| 设备检测 | `workflows/detect.py` |
+| 调试闭环 | `workflows/debug_loop.py` |
+| 配置模板 | `configs/project.yaml` |
+| 日志目录 | `logs/` |
 
 ---
 
@@ -122,16 +140,16 @@ class MyFlasher(FlasherBase):
     name = "my_flasher"
     
     def detect(self) -> bool:
-        # 检测逻辑
+        # 检测烧录器是否连接
         pass
     
     def flash(self, elf_path: str) -> bool:
-        # 烧录逻辑
+        # 烧录固件
         pass
     
     def reset(self) -> bool:
-        # 重置逻辑
+        # 重置芯片
         pass
 ```
 
-然后在 `discover.py` 中注册即可。
+然后在 `tools/flashers/discover.py` 中注册即可。

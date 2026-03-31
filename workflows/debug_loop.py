@@ -42,7 +42,13 @@ class DebugLoop:
         print("="*50)
         
         print("\n[1] 检测烧录器...")
-        flashers = list_serial_ports()
+        from tools.flashers.discover import list_available_flashers
+        flashers = list_available_flashers()
+        if flashers:
+            for i, f in enumerate(flashers, 1):
+                print(f"    {i}. {f.type}: {f.name} ({f.device or '未知设备'})")
+        else:
+            print("    未发现烧录器")
         
         print("\n[2] 可用串口:")
         ports = list_serial_ports()
