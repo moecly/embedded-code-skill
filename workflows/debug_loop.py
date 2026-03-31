@@ -25,6 +25,24 @@ from tools.flashers import (
 from tools.monitor import SerialMonitor, LoopLogger
 
 
+def normalize_path(path_str, base_dir=None):
+    """规范化路径为正斜杠格式，跨平台兼容"""
+    if not path_str:
+        return path_str
+    
+    path_str = path_str.replace('\\', '/')
+    
+    if base_dir and not path_str.startswith('/') and ':' not in path_str:
+        base_dir = base_dir.replace('\\', '/')
+        path_str = f"{base_dir}/{path_str}"
+    
+    try:
+        p = Path(path_str)
+        return p.as_posix()
+    except Exception:
+        return path_str
+
+
 class DebugLoop:
     def __init__(self, config_path: str = "configs/project.yaml"):
         self.config_path = config_path
@@ -211,9 +229,24 @@ class DebugLoop:
             print("[错误] 未配置烧录文件")
             return False, "未配置烧录文件"
         
-        if not os.path.exists(elf_path):
+        # 规范化路径
+        elf_path = normalize_path(elf_path, self.config_dir)
+        
+        # 检查文件是否存在
+        p = Path(elf_path)
+        if not p.exists():
+            # 如果是相对路径，尝试相对于工程目录
+            if self.project_path:
+                project_dir = str(Path(self.project_path).parent)
+                elf_path2 = normalize_path(self.config.get('flash', {}).get('elf'), project_dir)
+                p = Path(elf_path2)
+            
+        if not p.exists():
             print(f"[错误] 文件不存在: {elf_path}")
             return False, f"文件不存在: {elf_path}"
+        
+        # 获取绝对路径
+        elf_path = str(p.absolute())
         
         print(f"\n[烧录] {elf_path}")
         success = self.flasher.flash(elf_path)

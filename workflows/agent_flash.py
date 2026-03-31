@@ -34,6 +34,69 @@ from tools.builder import (
 )
 
 
+def normalize_path(path_str, base_dir=None):
+    """
+    规范化路径为正斜杠格式，跨平台兼容
+    
+    Args:
+        path_str: 原始路径字符串
+        base_dir: 基础目录（用于相对路径）
+    
+    Returns:
+        规范化后的正斜杠路径字符串
+    """
+    if not path_str:
+        return path_str
+    
+    # 如果包含反斜杠，先替换
+    path_str = path_str.replace('\\', '/')
+    
+    # 如果是相对路径，结合 base_dir
+    if base_dir and not path_str.startswith('/') and ':' not in path_str:
+        base_dir = base_dir.replace('\\', '/')
+        path_str = f"{base_dir}/{path_str}"
+    
+    # 使用 pathlib 处理并返回正斜杠格式
+    try:
+        p = Path(path_str)
+        return p.as_posix()
+    except Exception:
+        return path_str
+
+
+def validate_path(path_str, base_dir=None):
+    """
+    验证路径是否存在
+    
+    Args:
+        path_str: 路径字符串
+        base_dir: 基础目录
+    
+    Returns:
+        (规范化路径, 错误信息) - 成功时错误信息为 None
+    """
+    if not path_str:
+        return None, "路径为空"
+    
+    # 规范化路径
+    normalized = normalize_path(path_str, base_dir)
+    
+    # 检查是否为绝对路径
+    if normalized.startswith('/') or ':' in normalized:
+        check_path = normalized
+    elif base_dir:
+        check_path = f"{base_dir}/{normalized}"
+    else:
+        check_path = normalized
+    
+    # 转换为 Path 对象检查
+    p = Path(check_path)
+    if p.exists():
+        return normalize_path(str(p.absolute())), None
+    else:
+        return normalized, f"文件不存在: {check_path}"
+
+
 def detect_environment():
     """检测环境并返回结果"""
     result = {
@@ -215,14 +278,14 @@ def main():
         parser.print_help()
         sys.exit(1)
     
-    project_dir = os.path.abspath(args.project)
+    # 规范化工程目录路径
+    project_dir = normalize_path(args.project)
     
-    if args.json:
-        print(json.dumps({
-            "project_dir": project_dir,
-            "command": "not implemented yet"
-        }, ensure_ascii=False, indent=2))
-        return
+    # 验证工程目录
+    project_dir, error = validate_path(project_dir)
+    if error:
+        print(f"错误: {error}")
+        sys.exit(1)
     
     print("=" * 50)
     print("Agent Flash Tool")
@@ -238,11 +301,15 @@ def main():
             print("未找到项目文件，跳过编译")
     
     if args.elf:
-        elf_path = os.path.join(project_dir, args.elf)
+        # 规范化并验证 ELF 文件路径
+        elf_path, error = validate_path(args.elf, project_dir)
+        if error:
+            print(f"错误: {error}")
+            sys.exit(1)
     else:
         elf_path = None
     
-    if elf_path and os.path.exists(elf_path):
+    if elf_path:
         if args.flasher == 'jlink':
             flash_with_jlink(
                 elf_path,
@@ -251,10 +318,7 @@ def main():
                 interface=args.interface
             )
     else:
-        if not elf_path:
-            print("未指定 --elf 参数")
-        else:
-            print(f"文件不存在: {elf_path}")
+        print("未指定 --elf 参数或文件不存在")
     
     if not args.skip_monitor and args.serial:
         monitor_serial(args.serial, args.baudrate, args.monitor_timeout)

@@ -50,6 +50,38 @@ python "SKILL/workflows/agent_flash.py" \
 
 ---
 
+## 路径规范（重要！）
+
+### 路径规则
+
+| 规则 | 说明 | 示例 |
+|------|------|------|
+| **使用正斜杠** `/` | 跨平台兼容 | `D:/project/test.elf` |
+| **相对路径** | 相对于 `--project` | `MDK-ARM/test0/test0.elf` |
+| **始终使用引号** | 防止空格问题 | `"D:/My Project/test.elf"` |
+
+### 正确 vs 错误
+
+```bash
+# ✅ 正确写法
+--project "D:/workspacePrj/JL5104"
+--elf "MDK-ARM/test0/test0.elf"
+--elf "../output/firmware.hex"
+
+# ❌ 错误写法
+--elf "D:\workspacePrj\JL5104\MDK-ARM\test0\test0.elf"
+--elf D:/project/test.elf
+```
+
+### 路径解析说明
+
+脚本会自动处理以下情况：
+1. 反斜杠 `\` → 自动转换为正斜杠 `/`
+2. 相对路径 → 自动基于 `--project` 解析
+3. 路径不存在 → 报错并提示正确路径
+
+---
+
 ## 检测输出格式
 
 ```json
@@ -69,8 +101,8 @@ python "SKILL/workflows/agent_flash.py" \
 
 | 参数 | 必填 | 说明 | 示例 |
 |------|------|------|------|
-| `--project` | 是 | 工程目录 | `D:/workspacePrj/JL5104` |
-| `--elf` | 是 | 烧录文件 | `MDK-ARM/test0/test0.elf` |
+| `--project` | 是 | 工程目录（绝对或相对路径） | `D:/workspacePrj/JL5104` |
+| `--elf` | 是 | 烧录文件（相对于工程目录） | `MDK-ARM/test0/test0.elf` |
 | `--device` | 是 | 芯片型号 | `STM32F407ZGTx` |
 | `--serial` | 否 | 串口端口 | `COM3` |
 | `--flasher` | 否 | 烧录器类型 | `jlink` (默认) |
@@ -101,8 +133,16 @@ python "SKILL/workflows/agent_flash.py" \
 
 ---
 
-## 注意事项
+## 常见问题
 
-1. **路径使用正斜杠** - Windows 下也用 `/` 而非 `\`
-2. **芯片型号要准确** - 与 Keil 项目中一致
-3. **串口端口正确** - 从检测结果中选择
+**Q: 路径有空格怎么办？**
+A: 用引号包裹路径：`"D:/My Project/test.elf"`
+
+**Q: Windows 反斜杠可以用吗？**
+A: 可以，脚本会自动转换，但不建议使用
+
+**Q: 相对路径怎么写？**
+A: 相对于 `--project` 参数指定的目录
+
+**Q: 找不到文件怎么办？**
+A: 检查路径是否正确，使用正斜杠 `/`

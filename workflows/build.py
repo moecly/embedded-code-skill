@@ -18,6 +18,26 @@ from tools.builder import (
 )
 
 
+def normalize_path(path_str, base_dir=None):
+    """
+    规范化路径为正斜杠格式，跨平台兼容
+    """
+    if not path_str:
+        return path_str
+    
+    path_str = path_str.replace('\\', '/')
+    
+    if base_dir and not path_str.startswith('/') and ':' not in path_str:
+        base_dir = base_dir.replace('\\', '/')
+        path_str = f"{base_dir}/{path_str}"
+    
+    try:
+        p = Path(path_str)
+        return p.as_posix()
+    except Exception:
+        return path_str
+
+
 class BuildManager:
     def __init__(self, config: dict = None):
         self.config = config or {}
@@ -26,7 +46,8 @@ class BuildManager:
     
     def detect_projects(self, search_root: str = ".") -> list:
         """检测项目"""
-        return detect_projects(search_root)
+        normalized = normalize_path(search_root)
+        return detect_projects(normalized)
     
     def select_project(self, projects: list, index: int = None) -> str:
         """选择项目"""
@@ -96,14 +117,16 @@ def detect_build_environment(search_root: str = ".") -> dict:
         }
     }
     
+    normalized_root = normalize_path(search_root)
+    
     print("检测项目文件...", file=sys.stderr)
-    projects = detect_projects(search_root)
+    projects = detect_projects(normalized_root)
     result["projects"] = [
         {
             "type": p.type,
-            "path": p.path,
+            "path": normalize_path(p.path),
             "name": p.name,
-            "root_dir": p.root_dir
+            "root_dir": normalize_path(p.root_dir)
         }
         for p in projects
     ]
@@ -117,7 +140,7 @@ def detect_build_environment(search_root: str = ".") -> dict:
         "type": "keil",
         "name": "Keil MDK",
         "available": keil.detect_tool(),
-        "tool_path": keil.tool_path
+        "tool_path": normalize_path(keil.tool_path)
     })
     
     makefile = MakefileBuilder()
@@ -125,7 +148,7 @@ def detect_build_environment(search_root: str = ".") -> dict:
         "type": "makefile",
         "name": "Make",
         "available": makefile.detect_tool(),
-        "tool_path": makefile.tool_path
+        "tool_path": normalize_path(makefile.tool_path)
     })
     
     cmake = CMakeBuilder()
@@ -133,7 +156,7 @@ def detect_build_environment(search_root: str = ".") -> dict:
         "type": "cmake",
         "name": "CMake",
         "available": cmake.detect_tool(),
-        "tool_path": cmake.tool_path
+        "tool_path": normalize_path(cmake.tool_path)
     })
     
     result["available_tools"] = tools_status
