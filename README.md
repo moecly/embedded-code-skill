@@ -1,4 +1,4 @@
-# Embedded Flash Skill
+# Embedded Code Skill
 
 嵌入式开发调试闭环工具集，支持 **编译 → 烧录 → 监控 → 分析** 全流程自动化。
 
@@ -13,8 +13,8 @@
 ## 目录结构
 
 ```
-embedd-code-skill/
-├── SKILL.md              # Skill 入口定义
+embedd-core-skill/
+├── SKILL.md            # Skill 入口定义
 ├── README.md             # 本文档
 ├── docs/                 # 详细文档
 │   ├── quickstart.md     # 快速开始
@@ -268,4 +268,4 @@ A: 可以，脚本会自动转换为正斜杠，但不建议使用
 
 ---
 
-**SKILL 路径**: `C:\Users\m\.config\opencode\skills\embedd-code-skill`
+**SKILL 路径**: `C:\Users\m\.config\opencode\skills\embedd-core-skill`

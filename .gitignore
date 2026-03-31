@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+*.tmp
+*.bak
+*.temp
+temp/
+
+# Build outputs (if not needed in repo)
+# build/
+# dist/
+
+# OpenOCD
+*.cfg.bak
+
+# J-Link scripts
+*.jlink
+jlink_cmd.txt

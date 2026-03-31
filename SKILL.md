@@ -1,6 +1,6 @@
 ---
-name: embedded-flash
-description: 嵌入式调试闭环 - 支持 Keil/Makefile/CMake 项目自动检测，J-Link/ST-Link/CMSIS-DAP 烧录，串口监控
+name: embedded-code
+description: 嵌入式代码工具集 - 支持 Keil/Makefile/CMake 项目自动检测，J-Link/ST-Link/CMSIS-DAP 烧录，串口监控
 ---
 
 # 功能
@@ -142,4 +142,4 @@ debug:
 | 构建检测 | `workflows/build.py` |
 | 调试闭环 | `workflows/debug_loop.py` |
 
-SKILL = `C:\Users\m\.config\opencode\skills\embedd-code-skill`
+SKILL = `C:\Users\m\.config\opencode\skills\embedd-core-skill`
