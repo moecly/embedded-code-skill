@@ -61,7 +61,7 @@ class JLinkFlasher(FlasherBase):
             
             output = result.stdout + result.stderr
             devices = []
-            for line in output.decode('utf-8', errors='ignore').split('\n'):
+            for line in output.split('\n'):
                 if 'J-Link' in line or 'Firmware' in line or 'S/N' in line or 'O.K.' in line:
                     devices.append(line.strip())
             return devices
@@ -95,7 +95,7 @@ exit
             )
             os.unlink(cmd_file)
             
-            output = result.stdout + result.stderr
+            output = (result.stdout + result.stderr).decode('utf-8', errors='ignore')
             return "O.K." in output and "Downloading file" in output
         except Exception as e:
             print(f"JLink flash error: {e}")

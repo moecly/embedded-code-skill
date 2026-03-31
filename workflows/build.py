@@ -200,7 +200,68 @@ def main():
     parser.add_argument('--json', action='store_true', help='输出 JSON 格式')
     parser.add_argument('--human', action='store_true', help='输出人类可读格式')
     parser.add_argument('--search', '-s', default='.', help='搜索目录')
+    parser.add_argument('--build', '-b', metavar='PROJECT', help='编译指定项目文件路径')
+    parser.add_argument('--clean', action='store_true', help='清理后编译')
     args = parser.parse_args()
+    
+    if args.build:
+        project_path = normalize_path(args.build)
+        print(f"编译项目: {project_path}")
+        
+        from tools.builder.detector import ProjectDetector
+        detector = ProjectDetector()
+        
+        from pathlib import Path
+        p = Path(project_path)
+        ptype = None
+        if p.suffix in ['.uvprojx', '.uvproj']:
+            ptype = 'keil'
+        elif p.name in ['Makefile', 'makefile']:
+            ptype = 'makefile'
+        elif p.name == 'CMakeLists.txt':
+            ptype = 'cmake'
+        
+        if not ptype:
+            print(f"错误: 无法识别的项目类型: {project_path}")
+            sys.exit(1)
+        
+        print(f"项目类型: {ptype}")
+        
+        if ptype == 'keil':
+            builder = KeilBuilder(project_path=project_path)
+        elif ptype == 'makefile':
+            builder = MakefileBuilder(project_path=project_path)
+        elif ptype == 'cmake':
+            builder = CMakeBuilder(project_path=project_path)
+        else:
+            print(f"错误: 不支持的项目类型: {ptype}")
+            sys.exit(1)
+        
+        if not builder.detect_tool():
+            print(f"错误: 未找到编译工具")
+            sys.exit(1)
+        
+        print(f"编译工具: {builder.tool_path}")
+        success, output = builder.build()
+        
+        if args.json:
+            result = {
+                "success": success,
+                "output": output,
+                "output_path": builder.get_output_path() if success else None
+            }
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+        else:
+            if success:
+                print(f"\n编译成功!")
+                output_path = builder.get_output_path()
+                if output_path:
+                    print(f"输出文件: {output_path}")
+            else:
+                print(f"\n编译失败!")
+                print(output)
+        
+        sys.exit(0 if success else 1)
     
     if args.detect:
         result = detect_build_environment(args.search)

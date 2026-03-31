@@ -24,12 +24,12 @@ class CMSISDAPFlasher(FlasherBase):
     def detect(self) -> bool:
         try:
             result = subprocess.run(
-                [self.openocd_path, "-c", "adapter list", "-c", "shutdown"],
+                [self.openocd_path, "-f", "interface/cmsis-dap.cfg", "-c", "init", "-c", "shutdown"],
                 capture_output=True,
-                timeout=10
+                timeout=5
             )
-            output = result.stdout + result.stderr
-            return "CMSIS-DAP" in output or "cmsis-dap" in output.lower()
+            output = (result.stdout + result.stderr).decode('utf-8', errors='ignore')
+            return "unable to find" not in output.lower() and "error" not in output.lower()[:300]
         except FileNotFoundError:
             return False
         except Exception:
@@ -39,16 +39,14 @@ class CMSISDAPFlasher(FlasherBase):
         """列出所有连接的 CMSIS-DAP 设备"""
         try:
             result = subprocess.run(
-                [self.openocd_path, "-c", "adapter list", "-c", "shutdown"],
+                [self.openocd_path, "-f", "interface/cmsis-dap.cfg", "-c", "init", "-c", "shutdown"],
                 capture_output=True,
-                timeout=10
+                timeout=5
             )
             output = (result.stdout + result.stderr).decode('utf-8', errors='ignore')
-            devices = []
-            for line in output.split('\n'):
-                if 'cmsis-dap' in line.lower() or 'CMSIS-DAP' in line:
-                    devices.append(line.strip())
-            return devices
+            if "unable to find" in output.lower() or "error" in output.lower()[:300]:
+                return []
+            return ["CMSIS-DAP"]
         except:
             return []
     
