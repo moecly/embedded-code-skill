@@ -24,13 +24,33 @@ class CMSISDAPFlasher(FlasherBase):
     def detect(self) -> bool:
         try:
             result = subprocess.run(
-                [self.openocd_path, "-c", "adapter list"],
+                [self.openocd_path, "-c", "adapter list", "-c", "shutdown"],
                 capture_output=True,
-                timeout=5
+                timeout=10
             )
-            return "CMSIS-DAP" in result.stdout.decode('utf-8', errors='ignore')
-        except:
+            output = result.stdout + result.stderr
+            return "CMSIS-DAP" in output or "cmsis-dap" in output.lower()
+        except FileNotFoundError:
             return False
+        except Exception:
+            return False
+    
+    def list_devices(self) -> list:
+        """列出所有连接的 CMSIS-DAP 设备"""
+        try:
+            result = subprocess.run(
+                [self.openocd_path, "-c", "adapter list", "-c", "shutdown"],
+                capture_output=True,
+                timeout=10
+            )
+            output = (result.stdout + result.stderr).decode('utf-8', errors='ignore')
+            devices = []
+            for line in output.split('\n'):
+                if 'cmsis-dap' in line.lower() or 'CMSIS-DAP' in line:
+                    devices.append(line.strip())
+            return devices
+        except:
+            return []
     
     def flash(self, elf_path: str) -> bool:
         cfg = f"""

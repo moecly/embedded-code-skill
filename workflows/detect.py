@@ -7,6 +7,7 @@ import sys
 import json
 import subprocess
 import shutil
+import os
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -32,20 +33,36 @@ def detect_jlink():
     if not jlink_path:
         return {"type": "jlink", "available": False, "reason": "JLink executable not found"}
     
+    import tempfile
     try:
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+            f.write("connect\nq\n")
+            cmd_file = f.name
+        
         result = subprocess.run(
-            [jlink_path, "-CommandFile", "-", "-ExitCode"],
-            input=b"connect\nqc\n",
+            [jlink_path, "-CommandFile", cmd_file],
             capture_output=True,
-            timeout=5
+            timeout=10
         )
-        available = result.returncode == 0
+        os.unlink(cmd_file)
+        
+        output = result.stdout + result.stderr
+        output_str = output.decode('utf-8', errors='ignore')
+        available = "O.K." in output_str or "Connecting to J-Link" in output_str
+        devices = []
+        for line in output_str.split('\n'):
+            line = line.strip()
+            if 'J-Link' in line or 'Firmware' in line or 'S/N' in line or 'O.K.' in line:
+                devices.append(line)
         return {
             "type": "jlink",
             "available": available,
             "path": jlink_path,
+            "devices": devices,
             "status": "connected" if available else "not connected"
         }
+    except FileNotFoundError:
+        return {"type": "jlink", "available": False, "reason": "JLink executable not found"}
     except Exception as e:
         return {"type": "jlink", "available": False, "reason": str(e)}
 
@@ -115,15 +132,22 @@ def detect_cmsis_dap():
             capture_output=True,
             timeout=10
         )
-        output = result.stdout.decode('utf-8', errors='ignore') + result.stderr.decode('utf-8', errors='ignore')
-        available = "CMSIS-DAP" in output or "dap" in output.lower()
+        output = result.stdout + result.stderr
+        output_str = output.decode('utf-8', errors='ignore')
+        available = "CMSIS-DAP" in output_str or "cmsis-dap" in output_str.lower()
+        devices = []
+        for line in output_str.split('\n'):
+            if 'cmsis-dap' in line.lower():
+                devices.append(line.strip())
         return {
             "type": "cmsis_dap",
             "available": available,
             "path": openocd_path,
-            "status": "connected" if available else "not found",
-            "raw_output": output[:500] if available else ""
+            "devices": devices,
+            "status": "connected" if available else "not found"
         }
+    except FileNotFoundError:
+        return {"type": "cmsis_dap", "available": False, "reason": "OpenOCD not found"}
     except Exception as e:
         return {"type": "cmsis_dap", "available": False, "reason": str(e)}
 
@@ -184,12 +208,14 @@ def print_human_readable(result):
     
     print("\n【烧录器】")
     for flasher in result["flashers"]:
-        status = "✓ 可用" if flasher.get("available") else "✗ 不可用"
+        status = "[OK]" if flasher.get("available") else "[FAIL]"
         print(f"  {flasher['type'].upper()}: {status}")
         if flasher.get("available"):
             print(f"    路径: {flasher.get('path', 'N/A')}")
             if flasher.get("devices"):
-                print(f"    设备: {', '.join(flasher['devices'])}")
+                print(f"    设备列表:")
+                for d in flasher['devices']:
+                    print(f"      - {d}")
         else:
             print(f"    原因: {flasher.get('reason', 'unknown')}")
     

@@ -1,6 +1,7 @@
 from .base import FlasherBase
 import subprocess
 import shutil
+import os
 
 
 class STLinkFlasher(FlasherBase):
@@ -23,17 +24,36 @@ class STLinkFlasher(FlasherBase):
         return "ST-Link_CLI"
     
     def detect(self) -> bool:
-        if not self.device:
-            return False
         try:
             result = subprocess.run(
                 [self.stlink_path, "-List"],
                 capture_output=True,
                 timeout=5
             )
-            return self.device in result.stdout.decode('utf-8', errors='ignore')
-        except:
+            output = result.stdout.decode('utf-8', errors='ignore')
+            return "ST-LINK" in output or "STM32" in output
+        except FileNotFoundError:
             return False
+        except Exception:
+            return False
+    
+    def list_devices(self) -> list:
+        """列出所有连接的 ST-Link 设备"""
+        try:
+            result = subprocess.run(
+                [self.stlink_path, "-List"],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            devices = []
+            for line in result.stdout.split('\n'):
+                line = line.strip()
+                if 'ST-LINK' in line or 'STM32' in line:
+                    devices.append(line)
+            return devices
+        except:
+            return []
     
     def flash(self, elf_path: str) -> bool:
         if not os.path.exists(elf_path):
