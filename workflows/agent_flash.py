@@ -21,10 +21,18 @@ Agent 专用烧录脚本 - 提供简单的命令行接口
 """
 import sys
 import os
+import io
 import json
 import yaml
 import argparse
 from pathlib import Path
+
+# Fix Windows console encoding for Chinese output (skip when running under pytest)
+if sys.platform == 'win32' and "pytest" not in sys.modules:
+    if hasattr(sys.stdout, 'buffer'):
+        sys.stdout.reconfigure(encoding='utf-8')
+    if hasattr(sys.stderr, 'buffer'):
+        sys.stderr.reconfigure(encoding='utf-8')
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 

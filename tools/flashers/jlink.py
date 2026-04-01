@@ -79,7 +79,7 @@ class JLinkFlasher(FlasherBase):
                 return False, f"连接芯片时发生错误\n输出:\n{output}"
             
             # 检测连接成功
-            if "Connected to target" in output or "Found core" in output:
+            if "Connected to target" in output or "Core found" in output:
                 return True, "芯片连接正常"
             
             return False, f"芯片连接状态未知\n输出:\n{output}"
