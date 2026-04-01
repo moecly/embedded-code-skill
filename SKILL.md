@@ -118,44 +118,206 @@ python "SKILL/workflows/agent_flash.py" --project "<项目目录>" --flash "<固
 
 ## 常用命令示例
 
-### 检测并查看环境
+### 一、检测与配置
+
+#### 1. 检测环境（JSON 格式，供 Agent 解析）
 
 ```bash
 python "SKILL/workflows/agent_flash.py" --detect --json
 ```
 
-输出示例：
-```json
-{
-  "flashers": [{"type": "jlink", "available": true}],
-  "serial_ports": [{"port": "<串口号>", "description": "USB Serial Port"}]
-}
+**输出**：烧录器列表（含芯片连接状态）、串口列表
+
+#### 2. 检测环境（人类可读）
+
+```bash
+python "SKILL/workflows/agent_flash.py" --detect
 ```
 
-### 烧录 + 串口监控
+**输出**：烧录器名称、固件版本、芯片连接状态、串口列表
+
+#### 3. 初始化配置（当前目录）
+
+```bash
+python "SKILL/workflows/agent_flash.py" --init
+```
+
+**何时使用**：首次配置项目，输出 JSON 供 Agent 解析后生成配置文件
+
+#### 4. 初始化配置（指定目录）
+
+```bash
+python "SKILL/workflows/agent_flash.py" --project "<项目目录>" --init
+```
+
+#### 5. 强制重新配置
+
+```bash
+python "SKILL/workflows/agent_flash.py" --force-config --init
+```
+
+**何时使用**：更换烧录器或串口后重新生成配置
+
+---
+
+### 二、编译
+
+#### 6. 单独编译项目
+
+```bash
+python "SKILL/workflows/agent_flash.py" --build-only
+```
+
+**何时使用**：修改代码后先编译验证，不烧录
+
+#### 7. 编译后烧录
+
+```bash
+python "SKILL/workflows/agent_flash.py" --build --flash "<固件文件>"
+```
+
+**何时使用**：修改代码后编译并烧录到芯片
+
+#### 8. 编译后烧录（跳过监控）
+
+```bash
+python "SKILL/workflows/agent_flash.py" --build --flash "<固件文件>" --skip-monitor
+```
+
+---
+
+### 三、烧录
+
+#### 9. 烧录 .hex 文件（最常用）
+
+```bash
+python "SKILL/workflows/agent_flash.py" --flash "<固件文件>.hex"
+```
+
+**说明**：自动从配置读取芯片型号和烧录器
+
+#### 10. 烧录 .elf 文件
+
+```bash
+python "SKILL/workflows/agent_flash.py" --flash "<固件文件>.elf"
+```
+
+**注意**：ST-Link 不支持 .elf，需使用 J-Link 或 CMSIS-DAP
+
+#### 11. 烧录 .bin 文件（需指定地址）
+
+```bash
+python "SKILL/workflows/agent_flash.py" --flash "<固件文件>.bin" --addr 0x08000000
+```
+
+**说明**：`.bin` 文件不含地址信息，必须用 `--addr` 指定烧录地址
+
+#### 12. 指定烧录器类型
+
+```bash
+python "SKILL/workflows/agent_flash.py" --flash "<固件文件>" --flasher stlink
+```
+
+**可选值**：`jlink` / `stlink` / `cmsis_dap`
+
+#### 13. 指定接口和速度
+
+```bash
+python "SKILL/workflows/agent_flash.py" --flash "<固件文件>" \
+    --interface JTAG --speed 2000
+```
+
+---
+
+### 四、串口监控
+
+#### 14. 单独监控串口
+
+```bash
+python "SKILL/workflows/agent_flash.py" --monitor-only
+```
+
+**说明**：从配置读取串口和波特率
+
+#### 15. 指定串口监控
+
+```bash
+python "SKILL/workflows/agent_flash.py" --monitor-only \
+    --serial "<串口号>" --baudrate 9600
+```
+
+#### 16. 烧录后监控串口
+
+```bash
+python "SKILL/workflows/agent_flash.py" --flash "<固件文件>" \
+    --serial "<串口号>" --baudrate 115200
+```
+
+#### 17. 指定监控超时
+
+```bash
+python "SKILL/workflows/agent_flash.py" --flash "<固件文件>" \
+    --monitor-timeout 30
+```
+
+**说明**：默认超时 10 秒，长时间等待输出可用 30 秒或更长
+
+---
+
+### 五、完整工作流
+
+#### 18. 典型开发循环（修改 → 编译 → 烧录 → 监控）
+
+```bash
+# 第一次：初始化配置
+python "SKILL/workflows/agent_flash.py" --init
+
+# 后续循环：编译 → 烧录 → 监控
+python "SKILL/workflows/agent_flash.py" --build --flash "<固件文件>"
+```
+
+#### 19. 跳过监控，只编译烧录
+
+```bash
+python "SKILL/workflows/agent_flash.py" --build --flash "<固件文件>" --skip-monitor
+```
+
+#### 20. 指定所有参数（不依赖配置文件）
 
 ```bash
 python "SKILL/workflows/agent_flash.py" \
     --flash "<固件文件>" \
+    --flasher jlink \
     --device "<芯片型号>" \
-    --serial "<串口号>"
-```
-
-### 编译 + 烧录 + 监控
-
-```bash
-python "SKILL/workflows/agent_flash.py" \
-    --build \
-    --flash "<固件文件>"
-```
-
-### 仅烧录，跳过监控
-
-```bash
-python "SKILL/workflows/agent_flash.py" \
-    --flash "<固件文件>" \
+    --interface SWD \
+    --speed 4000 \
+    --serial "<串口号>" \
+    --baudrate 115200 \
     --skip-monitor
 ```
+
+**何时使用**：临时烧录，不想生成配置文件
+
+---
+
+### 六、错误处理
+
+#### 芯片未连接
+
+`--detect` 输出中 `device_connected: false` 时：
+1. 检查芯片供电
+2. 检查 SWD/JTAG 连线
+3. 确认芯片型号正确
+
+#### 烧录失败
+
+1. 反馈错误信息给用户
+2. 建议用户检查硬件连接
+3. 最多重试 3 次
+
+#### 无配置文件
+
+运行 `--init` 初始化配置，或手动创建 `configs/project.yaml`
 
 ---
 
@@ -174,10 +336,13 @@ python "SKILL/workflows/agent_flash.py" \
 | `--interface` / `-i` | 否 | 接口 | `SWD` / `JTAG` |
 | `--monitor-timeout` / `-t` | 否 | 监控超时 (秒) | `10` |
 | `--build` | 否 | 编译后再烧录 | flag |
+| `--build-only` | 否 | 仅编译，不烧录 | flag |
+| `--monitor-only` | 否 | 仅监控串口，不烧录 | flag |
 | `--skip-monitor` | 否 | 跳过串口监控 | flag |
 | `--detect` | 否 | 仅检测环境 | flag |
 | `--init` | 否 | 初始化配置，输出 JSON | flag |
 | `--force-config` | 否 | 强制重新配置 | flag |
+| `--json` | 否 | 输出 JSON 格式结果 | flag |
 
 ---
 

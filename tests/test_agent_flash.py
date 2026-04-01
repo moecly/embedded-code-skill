@@ -268,3 +268,67 @@ class TestInitConfig:
         
         result = init_config(str(temp_project))
         assert 'serial_ports' in result
+
+
+class TestBuildOnly:
+    """--build-only 参数测试"""
+    
+    def test_build_only_flag_in_help(self, capsys):
+        """测试 --build-only 出现在帮助中"""
+        from workflows.agent_flash import main
+        
+        with pytest.raises(SystemExit):
+            sys.argv = ['agent_flash.py', '--help']
+            main()
+        
+        captured = capsys.readouterr()
+        assert "--build-only" in captured.out
+    
+    def test_build_only_requires_project(self, capsys):
+        """测试 --build-only 在没有项目时退出"""
+        from workflows.agent_flash import main
+        
+        sys.argv = ['agent_flash.py', '--build-only']
+        
+        with pytest.raises(SystemExit) as exc_info:
+            main()
+        
+        assert exc_info.value.code == 1
+
+
+class TestMonitorOnly:
+    """--monitor-only 参数测试"""
+    
+    def test_monitor_only_flag_in_help(self, capsys):
+        """测试 --monitor-only 出现在帮助中"""
+        from workflows.agent_flash import main
+        
+        with pytest.raises(SystemExit):
+            sys.argv = ['agent_flash.py', '--help']
+            main()
+        
+        captured = capsys.readouterr()
+        assert "--monitor-only" in captured.out
+    
+    def test_monitor_only_requires_serial(self, mocker, capsys):
+        """测试 --monitor-only 没有串口时退出"""
+        from workflows.agent_flash import main
+        mocker.patch('workflows.agent_flash.has_config', return_value=False)
+        
+        sys.argv = ['agent_flash.py', '--monitor-only']
+        
+        with pytest.raises(SystemExit) as exc_info:
+            main()
+        
+        assert exc_info.value.code == 1
+    
+    def test_monitor_only_with_serial(self, mocker, capsys):
+        """测试 --monitor-only 带串口参数"""
+        from workflows.agent_flash import main
+        mock_monitor = mocker.patch('workflows.agent_flash.monitor_serial')
+        
+        sys.argv = ['agent_flash.py', '--monitor-only', '--serial', 'TEST_PORT']
+        main()
+        
+        mock_monitor.assert_called_once()
+

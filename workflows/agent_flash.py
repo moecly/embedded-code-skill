@@ -3,16 +3,21 @@
 Agent 专用烧录脚本 - 提供简单的命令行接口
 
 用法:
+    python agent_flash.py --detect                  # 检测环境
     python agent_flash.py --init                    # 初始化配置 (输出 JSON)
-    python agent_flash.py --project <目录> --flash <文件>
-    python agent_flash.py --flash <文件>            # 使用当前工作目录
-    python agent_flash.py --detect                  # 仅检测环境
+    python agent_flash.py --build-only              # 仅编译
+    python agent_flash.py --monitor-only            # 仅监控串口
+    python agent_flash.py --flash <文件>            # 烧录固件 (使用当前目录)
+    python agent_flash.py --build --flash <文件>    # 编译后烧录
     python agent_flash.py --help                    # 显示帮助
 
 示例:
     python agent_flash.py --init
+    python agent_flash.py --build-only
     python agent_flash.py --flash firmware.hex
+    python agent_flash.py --build --flash firmware.hex
     python agent_flash.py --flash firmware.bin --addr 0x08000000
+    python agent_flash.py --monitor-only
 """
 import sys
 import os
@@ -391,14 +396,23 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例:
-  初始化配置:
-    python agent_flash.py --init
-  
   检测环境:
     python agent_flash.py --detect
   
+  初始化配置:
+    python agent_flash.py --init
+  
+  仅编译:
+    python agent_flash.py --build-only
+  
+  仅监控串口:
+    python agent_flash.py --monitor-only
+  
   烧录并监控 (使用当前目录):
     python agent_flash.py --flash firmware.hex
+  
+  编译后烧录:
+    python agent_flash.py --build --flash firmware.hex
   
   烧录 bin 文件:
     python agent_flash.py --flash firmware.bin --addr 0x08000000
@@ -428,6 +442,10 @@ def main():
                        help='初始化配置，输出 JSON 供 Agent 解析')
     parser.add_argument('--build', action='store_true',
                        help='编译后再烧录')
+    parser.add_argument('--build-only', action='store_true',
+                       help='仅编译，不烧录')
+    parser.add_argument('--monitor-only', action='store_true',
+                       help='仅监控串口，不烧录')
     parser.add_argument('--skip-monitor', action='store_true',
                        help='跳过串口监控')
     parser.add_argument('--json', action='store_true',
@@ -437,6 +455,7 @@ def main():
     
     args = parser.parse_args()
     
+    # 1. 检测环境
     if args.detect:
         result = detect_environment()
         if args.json:
@@ -463,6 +482,7 @@ def main():
                 print("  无可用串口")
         return
     
+    # 2. 初始化配置
     if args.init:
         if not args.project or args.project == '.':
             project_dir = os.getcwd()
@@ -478,6 +498,7 @@ def main():
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return
     
+    # 确定项目目录
     if not args.project or args.project == '.':
         project_dir = os.getcwd()
     else:
@@ -493,6 +514,40 @@ def main():
     print("=" * 50)
     print(f"\n工程目录: {project_dir}")
     
+    # 3. 仅编译
+    if args.build_only:
+        project = auto_detect_project(project_dir)
+        if project:
+            print(f"\n检测到项目: {project.type.upper()} - {project.name}")
+            build_result = build_project(project.path, project.type)
+            if build_result:
+                print(f"\n编译产物: {build_result}")
+            else:
+                print("\n编译失败，请检查日志")
+                sys.exit(1)
+        else:
+            print("\n未找到项目文件")
+            sys.exit(1)
+        return
+    
+    # 4. 仅监控串口
+    if args.monitor_only:
+        serial_port = args.serial
+        baudrate = args.baudrate
+        
+        if not serial_port:
+            config = load_config(project_dir) if has_config(project_dir) else {}
+            serial_port = config.get('serial', {}).get('port')
+            if not serial_port:
+                print("\n错误: 未指定串口")
+                print("请使用 --serial 指定串口，或先生成配置文件 (--init)")
+                sys.exit(1)
+            baudrate = config.get('serial', {}).get('baudrate', baudrate)
+        
+        monitor_serial(serial_port, baudrate, args.monitor_timeout)
+        return
+    
+    # 5. 烧录 (可选编译)
     config = {}
     
     if has_config(project_dir) and not args.force_config:
@@ -500,16 +555,24 @@ def main():
         config = load_config(project_dir)
     else:
         print("\n未检测到配置文件，请先运行 --init 初始化配置")
-        print("命令: python agent_flash.py --project <目录> --init")
+        print("命令: python agent_flash.py --init")
         sys.exit(1)
     
+    # 编译 (如果有 --build)
     if args.build:
         project = auto_detect_project(project_dir)
         if project:
+            print(f"\n编译项目: {project.type.upper()} - {project.name}")
             build_result = build_project(project.path, project.type)
+            if build_result:
+                print(f"编译产物: {build_result}")
+            else:
+                print("\n编译失败，跳过烧录")
+                sys.exit(1)
         else:
             print("未找到项目文件，跳过编译")
     
+    # 烧录
     if args.flash:
         ext = Path(args.flash).suffix.lower()
         if ext == '.bin' and not args.addr:
@@ -529,6 +592,9 @@ def main():
         device = args.device or config.get('flasher', {}).get('device', '<芯片型号>')
         flasher_type = args.flasher or config.get('flasher', {}).get('type', 'jlink')
         
+        print(f"\n烧录器: {flasher_type}")
+        print(f"芯片: {device}")
+        
         if flasher_type == 'jlink':
             flash_with_jlink(flash_info, device=device, speed=args.speed, interface=args.interface)
         elif flasher_type == 'stlink':
@@ -536,14 +602,17 @@ def main():
         elif flasher_type == 'cmsis_dap':
             flash_with_cmsis_dap(flash_info, device=device, speed=args.speed, interface=args.interface)
     else:
-        print("\n未指定 --flash 参数，等待下一步指令...")
-        print("可用指令:")
-        print("  --build           编译项目")
+        print("\n未指定操作，可用指令:")
+        print("  --build-only      仅编译项目")
+        print("  --monitor-only    仅监控串口")
         print("  --flash <文件>    烧录固件")
+        print("  --build --flash   编译后烧录")
         print("  --detect          检测环境")
+        print("  --init            初始化配置")
         print("  --force-config    重新配置")
         return
     
+    # 串口监控
     serial_port = args.serial or config.get('serial', {}).get('port')
     if not args.skip_monitor and serial_port:
         monitor_serial(serial_port, args.baudrate, args.monitor_timeout)

@@ -95,6 +95,22 @@ python "SKILL/workflows/agent_flash.py" --flash "build/firmware.hex"
 python "SKILL/workflows/agent_flash.py" --detect
 ```
 
+### 单独编译
+
+```bash
+python "SKILL/workflows/agent_flash.py" --build-only
+```
+
+**何时使用**：修改代码后先编译验证，不烧录
+
+### 单独监控串口
+
+```bash
+python "SKILL/workflows/agent_flash.py" --monitor-only
+```
+
+**何时使用**：查看设备当前串口输出，不重新烧录
+
 ### 烧录 + 串口监控
 
 ```bash
@@ -174,12 +190,16 @@ python "SKILL/workflows/agent_flash.py" \
 
 ```
 1. 用户修改代码
-2. 执行烧录+监控
-3. 分析结果：
+2. 编译验证（可选）
+   python agent_flash.py --build-only
+3. 执行烧录+监控
+   python agent_flash.py --build --flash <文件>
+4. 分析结果：
+   ├─ 编译失败 → Agent 分析编译日志，修复代码 → 回到步骤2
    ├─ 烧录失败 → 反馈用户，让用户检查硬件连接（最多3次）
    └─ 烧录成功 → 分析串口输出
        ├─ 输出符合预期 → 结束
-       └─ 输出不符合预期 → Agent 自动修复 bug → 回到步骤1
+       └─ 输出不符合预期 → Agent 自动修复 bug → 回到步骤2
 ```
 
 ---
