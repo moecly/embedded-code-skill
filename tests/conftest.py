@@ -102,3 +102,21 @@ def mock_serial_ports(mocker):
         {'port': 'COM3', 'name': 'COM3', 'description': 'USB Serial Port', 'hwid': 'USB VID:PID=1234:5678'}
     ]
     return mock_ports
+
+
+@pytest.fixture
+def temp_project_with_config(temp_project, sample_config):
+    """创建临时项目目录并生成配置文件"""
+    import yaml
+    config_dir = temp_project / "configs"
+    config_dir.mkdir()
+    config_path = config_dir / "project.yaml"
+    with open(config_path, 'w', encoding='utf-8') as f:
+        yaml.dump(sample_config, f)
+    return temp_project
+
+
+@pytest.fixture
+def temp_project_without_config(temp_project):
+    """创建临时项目目录（无配置文件）"""
+    return temp_project

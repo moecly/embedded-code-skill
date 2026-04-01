@@ -15,6 +15,10 @@ from workflows.agent_flash import (
     get_flash_info,
     detect_environment,
     flash_with_jlink,
+    has_config,
+    load_config,
+    get_config_path,
+    save_config,
 )
 
 
@@ -117,6 +121,22 @@ class TestAgentFlashMain:
 class TestConfigLoading:
     """配置文件加载测试"""
     
+    def test_has_config_exists(self, temp_project_with_config):
+        """测试配置文件存在时返回 True"""
+        result = has_config(str(temp_project_with_config))
+        assert result is True
+    
+    def test_has_config_not_exists(self, temp_project_without_config):
+        """测试配置文件不存在时返回 False"""
+        result = has_config(str(temp_project_without_config))
+        assert result is False
+    
+    def test_get_config_path(self, temp_project):
+        """测试获取配置文件路径"""
+        config_path = get_config_path(str(temp_project))
+        assert "configs" in config_path
+        assert "project.yaml" in config_path
+    
     def test_load_existing_config(self, temp_project, sample_config):
         """测试加载已存在的配置"""
         config_dir = temp_project / "configs"
@@ -126,17 +146,27 @@ class TestConfigLoading:
         with open(config_path, 'w', encoding='utf-8') as f:
             yaml.dump(sample_config, f)
         
+        config = load_config(str(temp_project))
+        
+        assert config['flasher']['type'] == 'jlink'
+        assert config['flasher']['device'] == 'STM32F407ZG'
+    
+    def test_load_nonexistent_config(self, temp_project):
+        """测试加载不存在的配置"""
+        config = load_config(str(temp_project))
+        assert config == {}
+    
+    def test_save_config(self, temp_project, sample_config):
+        """测试保存配置"""
+        config_path = save_config(str(temp_project), sample_config)
+        
+        assert os.path.exists(config_path)
+        
         with open(config_path, 'r', encoding='utf-8') as f:
             loaded = yaml.safe_load(f)
         
         assert loaded['flasher']['type'] == 'jlink'
         assert loaded['flasher']['device'] == 'STM32F407ZG'
-    
-    def test_load_nonexistent_config(self, temp_project):
-        """测试加载不存在的配置"""
-        config_path = temp_project / "configs" / "project.yaml"
-        
-        assert not config_path.exists()
 
 
 class TestFlashWithJLink:

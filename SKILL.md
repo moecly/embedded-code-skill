@@ -29,14 +29,14 @@ description: 嵌入式代码工具集 - 支持 Keil/Makefile/CMake 项目自动�
 # 1. 检测环境
 python "SKILL/workflows/agent_flash.py" --detect
 
-# 2. 首次使用：初始化项目配置
-python "SKILL/workflows/agent_flash.py" --project D:/project/firmware --init
+# 2. 首次使用：运行后会自动提示配置
+python "SKILL/workflows/agent_flash.py" --project D:/project/firmware
 
 # 3. 烧录并监控
-python "SKILL/workflows/agent_flash.py" --project D:/project/firmware --flash MDK-ARM/project/project.hex --device STM32F407ZGTx --serial COM3
+python "SKILL/workflows/agent_flash.py" --project D:/project/firmware --flash MDK-ARM/project/project.hex
 
 # 4. 编译+烧录+监控
-python "SKILL/workflows/agent_flash.py" --project D:/project/firmware --build --flash MDK-ARM/project/project.hex --device STM32F407ZGTx --serial COM3
+python "SKILL/workflows/agent_flash.py" --project D:/project/firmware --build --flash MDK-ARM/project/project.hex
 ```
 
 ### agent_flash.py 参数说明
@@ -56,7 +56,7 @@ python "SKILL/workflows/agent_flash.py" --project D:/project/firmware --build --
 | `--build` | 编译后再烧录 | flag |
 | `--skip-monitor` | 跳过串口监控 | flag |
 | `--detect` | 仅检测环境 | flag |
-| `--init` | 首次初始化项目配置 | flag |
+| `--force-config` | 强制重新配置 | flag |
 | `--json` | 输出 JSON 格式结果 | flag |
 
 ### 烧录文件说明
@@ -71,44 +71,61 @@ python "SKILL/workflows/agent_flash.py" --project D:/project/firmware --build --
 
 ---
 
-## 首次使用流程
+## 执行流程
 
-### 1. 初始化项目配置
+### 首次使用流程
 
 ```bash
-python "SKILL/workflows/agent_flash.py" --project "D:/project/firmware" --init
+python "SKILL/workflows/agent_flash.py" --project "D:/project/firmware"
 ```
 
-脚本会：
+脚本会自动：
 
-1. 检测项目文件（Keil/Makefile/CMake）
-2. 检测烧录器（J-Link/ST-Link/CMSIS-DAP）
-3. 检测串口
-4. 显示检测结果供用户确认
-5. 生成 `项目目录/configs/project.yaml`
+1. 检查项目目录下是否有 `configs/project.yaml`
+2. 如果没有，会询问配置方式：
+   - **自动扫描（推荐）**：自动检测项目、烧录器、串口
+   - **手动配置**：手动输入参数
+3. 用户确认后保存配置
 
-### 2. 确认配置
+### 交互式配置示例
 
 ```
-检测结果：
-  项目类型: Keil MDK
-  项目路径: D:/project/firmware/MDK-ARM/project.uvprojx
-  烧录器:   J-Link
-  串口:     COM3
+请选择配置方式：
+  1. 自动扫描（推荐）
+  2. 手动配置
 
-请输入芯片型号 (如 STM32F407ZGTx): STM32F407ZGTx
-请输入接口类型 (SWD/JTAG, 默认 SWD): SWD
+请选择 (1/2): 1
+
+[1/5] 检测项目文件...
+  发现项目: KEIL - firmware
+  路径: D:/project/firmware/MDK-ARM/project.uvprojx
+
+[2/5] 检测烧录器...
+  发现 J-Link
+
+[3/5] 检测串口...
+  发现串口: COM3 - USB Serial Port
+
+烧录器类型 (默认: jlink): 
+芯片型号 (如 STM32F407ZGTx): STM32F407ZGTx
+接口类型 (SWD/JTAG, 默认 SWD): 
+烧录速度 KHz (默认 4000): 
+串口 (默认: COM3): 
 
 是否保存配置? (Y/n): Y
+
+配置已保存: D:/project/firmware/configs/project.yaml
 ```
 
-### 3. 后续使用
+### 后续使用
 
-初始化后，直接使用：
+有配置文件后，直接运行即可：
 
 ```bash
 python "SKILL/workflows/agent_flash.py" --project "D:/project/firmware" --flash "MDK-ARM/project/project.hex"
 ```
+
+配置文件会自动加载，无需重复配置。
 
 ---
 
