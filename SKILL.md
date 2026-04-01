@@ -63,7 +63,7 @@ python "SKILL/workflows/agent_flash.py" --project D:/project/firmware --build --
 
 | 文件类型 | 说明 | 示例 |
 |----------|------|------|
-| `.elf` | Keil/GCC 编译产物，包含调试信息 | `--flash firmware.elf` |
+| `.elf` | Keil/GCC 编译产物，包含调试信息（ST-Link 不支持） | `--flash firmware.elf` |
 | `.hex` | Intel hex 格式，包含地址信息 | `--flash firmware.hex` |
 | `.bin` | 纯二进制文件，需要指定烧录地址 | `--flash firmware.bin --addr 0x08000000` |
 
@@ -163,6 +163,17 @@ A: 需要指定烧录地址：
        --flash "firmware.bin" \
        --addr 0x08000000
    ```
+
+**Q: 工具运行出错？**
+A: 可以运行自动化测试来检验：
+
+   ```bash
+   pip install -r requirements.txt
+   pytest tests/ -v
+   ```
+
+**Q: ST-Link 不支持 elf 文件？**
+A: 是的，ST-Link 只支持 .hex 和 .bin 文件，不支持 .elf。使用 J-Link 或 CMSIS-DAP 可以烧录 .elf 文件。
 
 ---
 

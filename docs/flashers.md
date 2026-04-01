@@ -60,6 +60,8 @@ ST-Link_CLI.exe -c ID=0 -P firmware.hex 0x08000000 -V -Rst -Run
 
 ---
 
+> **注意**：ST-Link 只支持 .hex 和 .bin 文件，不支持 .elf。
+
 ## CMSIS-DAP (OpenOCD)
 
 ### 检测设备
