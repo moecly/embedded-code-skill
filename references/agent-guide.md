@@ -4,12 +4,71 @@
 
 作为 Agent，使用这个 skill 时应该：
 1. **先检测环境** - 了解可用的烧录器和串口
-2. **使用最简单的命令** - `agent_flash.py`
-3. **按需选择** - 如果需要更精细控制再用其他脚本
+2. **使用 --init 初始化配置** - 脚本输出 JSON，Agent 解析后询问用户
+3. **生成配置文件** - Agent 根据用户回答生成 `configs/project.yaml`
+4. **后续直接烧录** - 配置文件存在后，脚本无需交互
 
 ---
 
-## 推荐的 Agent 工作流
+## Agent 工作流
+
+### 首次配置流程
+
+```bash
+# 1. 检测环境
+python "SKILL/workflows/agent_flash.py" --detect --json
+
+# 2. 初始化配置 (输出 JSON)
+python "SKILL/workflows/agent_flash.py" --init
+```
+
+`--init` 输出示例：
+```json
+{
+  "project": {"name": "firmware", "type": "keil", "path": "..."},
+  "flashers": [{"type": "jlink", "name": "J-Link"}],
+  "available_flashers": ["jlink"],
+  "serial_ports": [{"port": "COM3", "description": "USB Serial Port"}]
+}
+```
+
+Agent 根据此输出询问用户：
+- 选择哪个烧录器？
+- 芯片型号是什么？
+- 使用哪个串口？
+- 波特率是多少？
+
+然后 Agent 生成 `configs/project.yaml`：
+```yaml
+project:
+  name: "firmware"
+  type: "keil"
+
+flasher:
+  type: "jlink"
+  device: "<芯片型号>"
+  speed: 4000
+  interface: "SWD"
+
+serial:
+  port: "COM3"
+  baudrate: 115200
+
+debug:
+  max_retries: 3
+```
+
+### 后续烧录流程
+
+配置文件存在后，无需交互：
+
+```bash
+python "SKILL/workflows/agent_flash.py" --flash "build/firmware.hex"
+```
+
+---
+
+## 常用场景
 
 ### 场景 1：快速检测环境
 
@@ -21,7 +80,6 @@ python "SKILL/workflows/agent_flash.py" --detect
 
 ```bash
 python "SKILL/workflows/agent_flash.py" \
-    --project "D:/project/firmware" \
     --flash "build/firmware.hex" \
     --device "<芯片型号>" \
     --serial "<串口号>"
@@ -31,20 +89,15 @@ python "SKILL/workflows/agent_flash.py" \
 
 ```bash
 python "SKILL/workflows/agent_flash.py" \
-    --project "D:/project/firmware" \
     --build \
-    --flash "build/firmware.hex" \
-    --device "<芯片型号>" \
-    --serial "<串口号>"
+    --flash "build/firmware.hex"
 ```
 
 ### 场景 4：跳过监控，只烧录
 
 ```bash
 python "SKILL/workflows/agent_flash.py" \
-    --project "D:/project/firmware" \
     --flash "build/firmware.hex" \
-    --device "<芯片型号>" \
     --skip-monitor
 ```
 

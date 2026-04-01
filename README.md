@@ -29,18 +29,19 @@ python workflows/agent_flash.py --detect
 
 ### 第二步：初始化项目配置
 
-首次使用时，告诉工具您的项目信息：
+首次使用时，获取项目信息：
 
 ```bash
-python workflows/agent_flash.py --project "您的项目目录" --init
+python workflows/agent_flash.py --init
 ```
 
-工具会检测项目文件、烧录器、串口，并保存配置。
+工具会输出 JSON 格式的检测信息（项目、烧录器、串口）。
+Agent 解析后询问用户芯片型号等信息，然后生成配置文件。
 
 ### 第三步：烧录固件
 
 ```bash
-python workflows/agent_flash.py --project "您的项目目录" --flash "firmware.hex"
+python workflows/agent_flash.py --flash "firmware.hex"
 ```
 
 ---
@@ -127,7 +128,7 @@ embedded-code-skill/
 │   ├── builder/         # 编译器适配
 │   ├── flashers/       # 烧录器适配
 │   └── monitor/        # 串口监控
-└── docs/               # 详细文档
+└── references/           # Agent 参考文档
 ```
 
 ---
@@ -136,6 +137,6 @@ embedded-code-skill/
 
 - 使用 `--help` 查看脚本帮助
 - 使用 `--detect` 检测环境
-- 查看 `docs/` 目录下的详细文档
+- 查看 `references/` 目录下的参考文档
 
 

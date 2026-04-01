@@ -19,6 +19,7 @@ from workflows.agent_flash import (
     load_config,
     get_config_path,
     save_config,
+    init_config,
 )
 
 
@@ -96,7 +97,7 @@ class TestAgentFlashMain:
         assert "烧录器" in captured.out or "flasher" in captured.out.lower()
     
     def test_project_required_without_flash(self):
-        """测试没有 --project 参数时报错"""
+        """测试没有配置文件时报错"""
         from workflows.agent_flash import main
         
         sys.argv = ['agent_flash.py', '--flash', 'test.hex']
@@ -233,3 +234,34 @@ class TestFlashWithJLink:
         )
         
         assert result is not None
+
+
+class TestInitConfig:
+    """初始化配置测试"""
+    
+    def test_init_returns_dict(self, temp_project):
+        """测试 init_config 返回字典"""
+        result = init_config(str(temp_project))
+        assert isinstance(result, dict)
+    
+    def test_init_has_project(self, temp_project):
+        """测试 init_config 包含 project 字段"""
+        result = init_config(str(temp_project))
+        assert 'project' in result
+    
+    def test_init_has_flashers(self, mocker, temp_project):
+        """测试 init_config 包含 flashers 字段"""
+        mocker.patch('workflows.agent_flash.JLinkFlasher')
+        mocker.patch('workflows.agent_flash.STLinkFlasher')
+        mocker.patch('workflows.agent_flash.CMSISDAPFlasher')
+        
+        result = init_config(str(temp_project))
+        assert 'flashers' in result
+        assert 'available_flashers' in result
+    
+    def test_init_has_serial_ports(self, mocker, temp_project):
+        """测试 init_config 包含 serial_ports 字段"""
+        mocker.patch('workflows.agent_flash.list_serial_ports', return_value=[])
+        
+        result = init_config(str(temp_project))
+        assert 'serial_ports' in result

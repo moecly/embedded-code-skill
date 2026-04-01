@@ -60,7 +60,7 @@ python "SKILL/workflows/agent_flash.py" --detect
 | 场景 | 命令 | 说明 |
 |------|------|------|
 | 检测环境 | `--detect` | 查看可用烧录器和串口 |
-| 首次配置 | `--project <目录>` | 自动检测项目、烧录器、串口，引导用户配置 |
+| 初始化配置 | `--init` | 输出 JSON，供 Agent 解析后生成配置 |
 | 烧录固件 | `--flash <文件>` | 烧录 .elf/.hex/.bin |
 | 编译+烧录 | `--build --flash <文件>` | 编译后烧录 |
 | 跳过监控 | `--skip-monitor` | 仅烧录，不监控串口 |
@@ -85,21 +85,22 @@ python "SKILL/workflows/agent_flash.py" --detect
 python "SKILL/workflows/agent_flash.py" --detect
 ```
 
-### 2. 首次使用：配置项目
+### 2. 初始化配置
 
 ```bash
 # 使用当前工作目录
-python "SKILL/workflows/agent_flash.py"
+python "SKILL/workflows/agent_flash.py" --init
 
 # 或指定项目目录
-python "SKILL/workflows/agent_flash.py" --project "<项目目录>"
+python "SKILL/workflows/agent_flash.py" --project "<项目目录>" --init
 ```
 
-脚本会自动：
-1. 检测项目类型（Keil/Makefile/CMake）
-2. 检测烧录器（J-Link/ST-Link/CMSIS-DAP）
-3. 检测串口
-4. 引导用户确认配置
+脚本输出 JSON 格式，包含：
+- 检测到的项目信息
+- 可用烧录器列表
+- 可用串口列表
+
+Agent 解析后询问用户：芯片型号、串口、波特率等，然后生成 `configs/project.yaml`。
 
 ### 3. 后续使用
 
@@ -175,6 +176,7 @@ python "SKILL/workflows/agent_flash.py" \
 | `--build` | 否 | 编译后再烧录 | flag |
 | `--skip-monitor` | 否 | 跳过串口监控 | flag |
 | `--detect` | 否 | 仅检测环境 | flag |
+| `--init` | 否 | 初始化配置，输出 JSON | flag |
 | `--force-config` | 否 | 强制重新配置 | flag |
 
 ---
@@ -249,11 +251,11 @@ pytest tests/ -v
 
 | 文件 | 何时加载 |
 |------|---------|
-| `docs/quickstart.md` | 新用户快速上手 |
-| `docs/config.md` | 配置文件详解 |
-| `docs/flashers.md` | 烧录器详细说明 |
-| `docs/extending.md` | 添加新工具支持 |
-| `docs/compilers.md` | Keil/Makefile/CMake 编译 |
+| `references/quickstart.md` | Agent 快速上手 |
+| `references/config.md` | 配置参考 |
+| `references/flashers.md` | 烧录器参考 |
+| `references/extending.md` | 扩展参考 |
+| `references/compilers.md` | 编译器参考 |
 
 ---
 

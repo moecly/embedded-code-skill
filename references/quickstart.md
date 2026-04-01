@@ -31,7 +31,8 @@ python "SKILL/workflows/agent_flash.py" --detect
 python "SKILL/workflows/agent_flash.py" --project "你的工程目录" --init
 ```
 
-按照提示输入芯片型号等信息。
+脚本输出 JSON 格式，包含检测到的项目、烧录器、串口信息。
+Agent 解析后询问用户芯片型号等信息，然后生成配置文件。
 
 ### 步骤 3：烧录固件
 
