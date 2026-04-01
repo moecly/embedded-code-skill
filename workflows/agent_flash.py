@@ -3,23 +3,40 @@
 Agent 专用烧录脚本 - 提供简单的命令行接口
 
 用法:
-    python agent_flash.py --project <工程目录> [--flasher <类型>] [--device <芯片>] [--serial <端口>]
-    python agent_flash.py --detect              # 仅检测环境
-    python agent_flash.py --help               # 显示帮助
+    python agent_flash.py --detect                  # 检测环境
+    python agent_flash.py --init                    # 初始化配置 (输出 JSON)
+    python agent_flash.py --build-only              # 仅编译
+    python agent_flash.py --monitor-only            # 仅监控串口
+    python agent_flash.py --flash <文件>            # 烧录固件 (使用当前目录)
+    python agent_flash.py --build --flash <文件>    # 编译后烧录
+    python agent_flash.py --help                    # 显示帮助
 
 示例:
-    python agent_flash.py --project D:/workspacePrj/JL5104
-    python agent_flash.py --project D:/workspacePrj/JL5104 --flasher jlink --device STM32F407ZGTx
+    python agent_flash.py --init
+    python agent_flash.py --build-only
+    python agent_flash.py --flash firmware.hex
+    python agent_flash.py --build --flash firmware.hex
+    python agent_flash.py --flash firmware.bin --addr 0x08000000
+    python agent_flash.py --monitor-only
 """
 import sys
 import os
+import io
 import json
+import yaml
 import argparse
 from pathlib import Path
 
+# Fix Windows console encoding for Chinese output (skip when running under pytest)
+if sys.platform == 'win32' and "pytest" not in sys.modules:
+    if hasattr(sys.stdout, 'buffer'):
+        sys.stdout.reconfigure(encoding='utf-8')
+    if hasattr(sys.stderr, 'buffer'):
+        sys.stderr.reconfigure(encoding='utf-8')
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from tools.builder import detect_projects
+from tools.builder import detect_projects, KeilBuilder, MakefileBuilder, CMakeBuilder
 from tools.flashers import (
     JLinkFlasher,
     STLinkFlasher,
@@ -27,11 +44,130 @@ from tools.flashers import (
     list_serial_ports,
 )
 from tools.monitor import SerialMonitor
-from tools.builder import (
-    KeilBuilder,
-    MakefileBuilder,
-    CMakeBuilder,
-)
+
+
+def get_config_path(project_dir):
+    """获取配置文件路径"""
+    return os.path.join(project_dir, 'configs', 'project.yaml')
+
+
+def has_config(project_dir):
+    """检查配置文件是否存在"""
+    return os.path.exists(get_config_path(project_dir))
+
+
+def load_config(project_dir):
+    """加载配置文件"""
+    config_path = get_config_path(project_dir)
+    if os.path.exists(config_path):
+        with open(config_path, 'r', encoding='utf-8') as f:
+            return yaml.safe_load(f) or {}
+    return {}
+
+
+def save_config(project_dir, config):
+    """保存配置文件"""
+    config_dir = os.path.join(project_dir, 'configs')
+    os.makedirs(config_dir, exist_ok=True)
+    config_path = get_config_path(project_dir)
+    with open(config_path, 'w', encoding='utf-8') as f:
+        yaml.dump(config, f, allow_unicode=True, default_flow_style=False)
+    return config_path
+
+
+def detect_project_info(project_dir):
+    """检测项目信息"""
+    projects = detect_projects(project_dir)
+    if projects:
+        project = projects[0]
+        return {
+            'name': project.name,
+            'type': project.type,
+            'path': str(project.path)
+        }
+    return None
+
+
+def detect_flasher_info():
+    """检测烧录器信息"""
+    flashers = []
+    available_types = []
+    
+    jlink = JLinkFlasher()
+    if jlink.detect():
+        flashers.append({'type': 'jlink', 'name': 'J-Link'})
+        available_types.append('jlink')
+    
+    stlink = STLinkFlasher()
+    if stlink.detect():
+        flashers.append({'type': 'stlink', 'name': 'ST-Link'})
+        available_types.append('stlink')
+    
+    cmsis = CMSISDAPFlasher()
+    if cmsis.detect():
+        flashers.append({'type': 'cmsis_dap', 'name': 'CMSIS-DAP'})
+        available_types.append('cmsis_dap')
+    
+    return flashers, available_types
+
+
+def detect_serial_info():
+    """检测串口信息"""
+    ports = list_serial_ports()
+    serial_info = []
+    
+    for p in ports:
+        serial_info.append({
+            'port': p['port'],
+            'description': p.get('description', 'N/A')
+        })
+    
+    return serial_info
+
+
+def init_config(project_dir):
+    """
+    初始化配置 - 输出 JSON 格式，供 Agent 解析
+    Agent 根据此输出询问用户，然后生成配置文件
+    """
+    result = {
+        'project': detect_project_info(project_dir),
+        'flashers': [],
+        'available_flashers': [],
+        'serial_ports': []
+    }
+    
+    # 检测烧录器并检查芯片连接状态
+    jlink = JLinkFlasher()
+    if jlink.detect():
+        device_connected, device_msg = jlink.check_device()
+        result['flashers'].append({
+            'type': 'jlink',
+            'name': 'J-Link',
+            'device_connected': device_connected,
+            'device_message': device_msg
+        })
+        result['available_flashers'].append('jlink')
+    
+    stlink = STLinkFlasher()
+    if stlink.detect():
+        result['flashers'].append({
+            'type': 'stlink',
+            'name': 'ST-Link'
+        })
+        result['available_flashers'].append('stlink')
+    
+    cmsis = CMSISDAPFlasher()
+    if cmsis.detect():
+        result['flashers'].append({
+            'type': 'cmsis_dap',
+            'name': 'CMSIS-DAP'
+        })
+        result['available_flashers'].append('cmsis_dap')
+    
+    result['serial_ports'] = detect_serial_info()
+    
+    return result
 
 
 def normalize_path(path_str, base_dir=None):
@@ -108,10 +244,13 @@ def detect_environment():
     print("检测烧录器...")
     jlink = JLinkFlasher()
     if jlink.detect():
+        device_connected, device_msg = jlink.check_device()
         result["flashers"].append({
             "type": "jlink",
             "available": True,
-            "devices": jlink.list_devices()
+            "devices": jlink.list_devices(),
+            "device_connected": device_connected,
+            "device_message": device_msg
         })
     
     stlink = STLinkFlasher()
@@ -146,14 +285,66 @@ def auto_detect_project(search_root):
     return None
 
 
-def flash_with_jlink(elf_path, device="STM32F407ZG", speed=4000, interface="SWD"):
+def get_flash_info(flash_path, addr=None):
+    """分析烧录文件类型，返回文件信息和错误"""
+    if not flash_path:
+        return None, "烧录文件路径为空"
+    
+    ext = Path(flash_path).suffix.lower()
+    
+    if ext == '.bin':
+        if not addr:
+            return None, f"错误: .bin 文件需要指定 --addr 参数（如 --addr 0x08000000）"
+        return {'type': 'bin', 'addr': addr, 'path': flash_path}, None
+    
+    elif ext in ['.hex', '.elf']:
+        return {'type': ext.lstrip('.'), 'path': flash_path}, None
+    
+    else:
+        return None, f"错误: 不支持的文件格式 {ext}，仅支持 .elf/.hex/.bin"
+
+
+def flash_with_jlink(flash_info, device="<芯片型号>", speed=4000, interface="SWD"):
     """使用 JLink 烧录"""
-    print(f"\n烧录: {elf_path}")
+    flash_path = flash_info['path']
+    print(f"\n烧录: {flash_path}")
     print(f"设备: {device}, 接口: {interface}, 速度: {speed} KHz")
     
     flasher = JLinkFlasher(device=device, speed=speed, interface=interface)
     
-    if flasher.flash(elf_path):
+    if flasher.flash(flash_path, flash_type=flash_info['type'], addr=flash_info.get('addr')):
+        print("烧录成功!")
+        return True
+    else:
+        print("烧录失败!")
+        return False
+
+
+def flash_with_stlink(flash_info, device=None, speed=4000, interface="SWD"):
+    """使用 ST-Link 烧录"""
+    flash_path = flash_info['path']
+    print(f"\n烧录: {flash_path}")
+    print(f"设备: {device or 'auto'}, 接口: {interface}, 速度: {speed} KHz")
+    
+    flasher = STLinkFlasher(device=device, speed=speed, interface=interface)
+    
+    if flasher.flash(flash_path, flash_type=flash_info['type'], addr=flash_info.get('addr')):
+        print("烧录成功!")
+        return True
+    else:
+        print("烧录失败!")
+        return False
+
+
+def flash_with_cmsis_dap(flash_info, device=None, speed=4000, interface="SWD"):
+    """使用 CMSIS-DAP 烧录"""
+    flash_path = flash_info['path']
+    print(f"\n烧录: {flash_path}")
+    print(f"设备: {device or 'auto'}, 接口: {interface}, 速度: {speed} KHz")
+    
+    flasher = CMSISDAPFlasher(device=device, speed=speed, interface=interface)
+    
+    if flasher.flash(flash_path, flash_type=flash_info['type'], addr=flash_info.get('addr')):
         print("烧录成功!")
         return True
     else:
@@ -216,21 +407,34 @@ def main():
   检测环境:
     python agent_flash.py --detect
   
-  烧录并监控:
-    python agent_flash.py --project D:/workspacePrj/JL5104 --elf MDK-ARM/test0/test0.elf
+  初始化配置:
+    python agent_flash.py --init
   
-  指定设备:
-    python agent_flash.py --project D:/workspacePrj/JL5104 --flasher jlink --device STM32F407ZGTx --serial COM3
+  仅编译:
+    python agent_flash.py --build-only
+  
+  仅监控串口:
+    python agent_flash.py --monitor-only
+  
+  烧录并监控 (使用当前目录):
+    python agent_flash.py --flash firmware.hex
+  
+  编译后烧录:
+    python agent_flash.py --build --flash firmware.hex
+  
+  烧录 bin 文件:
+    python agent_flash.py --flash firmware.bin --addr 0x08000000
         """
     )
     
-    parser.add_argument('--project', '-p', help='工程目录路径')
-    parser.add_argument('--elf', '-e', help='ELF/Hex 文件路径（相对于工程目录）')
+    parser.add_argument('--project', '-p', default='.', help='工程目录路径 (默认: 当前工作目录)')
+    parser.add_argument('--flash', help='烧录文件（支持 .elf/.hex/.bin）')
+    parser.add_argument('--addr', help='烧录地址（仅 .bin 需要，如 0x08000000）')
     parser.add_argument('--flasher', '-f', default='jlink', 
                        choices=['jlink', 'stlink', 'cmsis_dap'],
                        help='烧录器类型 (默认: jlink)')
-    parser.add_argument('--device', '-d', help='芯片型号 (如 STM32F407ZGTx)')
-    parser.add_argument('--serial', '-s', help='串口端口 (如 COM3)')
+    parser.add_argument('--device', '-d', help='芯片型号 (如 <芯片型号>)')
+    parser.add_argument('--serial', '-s', help='串口端口 (如 <串口号>)')
     parser.add_argument('--baudrate', '-b', type=int, default=115200,
                        help='串口波特率 (默认: 115200)')
     parser.add_argument('--speed', type=int, default=4000,
@@ -242,15 +446,24 @@ def main():
                        help='串口监控超时秒数 (默认: 10)')
     parser.add_argument('--detect', action='store_true',
                        help='仅检测环境，不烧录')
+    parser.add_argument('--init', action='store_true',
+                       help='初始化配置，输出 JSON 供 Agent 解析')
     parser.add_argument('--build', action='store_true',
                        help='编译后再烧录')
+    parser.add_argument('--build-only', action='store_true',
+                       help='仅编译，不烧录')
+    parser.add_argument('--monitor-only', action='store_true',
+                       help='仅监控串口，不烧录')
     parser.add_argument('--skip-monitor', action='store_true',
                        help='跳过串口监控')
     parser.add_argument('--json', action='store_true',
                        help='输出 JSON 格式结果')
+    parser.add_argument('--force-config', action='store_true',
+                       help='强制重新配置（忽略已有配置）')
     
     args = parser.parse_args()
     
+    # 1. 检测环境
     if args.detect:
         result = detect_environment()
         if args.json:
@@ -262,6 +475,10 @@ def main():
                     print(f"  {f['type']}: 可用")
                     for d in f.get('devices', []):
                         print(f"    {d}")
+                    if f.get('device_connected') is False:
+                        print(f"  [!] 芯片未连接: {f.get('device_message', '')}")
+                    elif f.get('device_connected') is True:
+                        print(f"  [OK] 芯片连接正常")
             else:
                 print("  无可用烧录器")
             
@@ -273,15 +490,28 @@ def main():
                 print("  无可用串口")
         return
     
-    if not args.project:
-        print("错误: 需要指定 --project 参数")
-        parser.print_help()
-        sys.exit(1)
+    # 2. 初始化配置
+    if args.init:
+        if not args.project or args.project == '.':
+            project_dir = os.getcwd()
+        else:
+            project_dir = normalize_path(args.project)
+        
+        project_dir, error = validate_path(project_dir)
+        if error:
+            print(f"错误: {error}")
+            sys.exit(1)
+        
+        result = init_config(project_dir)
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return
     
-    # 规范化工程目录路径
-    project_dir = normalize_path(args.project)
+    # 确定项目目录
+    if not args.project or args.project == '.':
+        project_dir = os.getcwd()
+    else:
+        project_dir = normalize_path(args.project)
     
-    # 验证工程目录
     project_dir, error = validate_path(project_dir)
     if error:
         print(f"错误: {error}")
@@ -290,38 +520,110 @@ def main():
     print("=" * 50)
     print("Agent Flash Tool")
     print("=" * 50)
-    
     print(f"\n工程目录: {project_dir}")
     
+    # 3. 仅编译
+    if args.build_only:
+        project = auto_detect_project(project_dir)
+        if project:
+            print(f"\n检测到项目: {project.type.upper()} - {project.name}")
+            build_result = build_project(project.path, project.type)
+            if build_result:
+                print(f"\n编译产物: {build_result}")
+            else:
+                print("\n编译失败，请检查日志")
+                sys.exit(1)
+        else:
+            print("\n未找到项目文件")
+            sys.exit(1)
+        return
+    
+    # 4. 仅监控串口
+    if args.monitor_only:
+        serial_port = args.serial
+        baudrate = args.baudrate
+        
+        if not serial_port:
+            config = load_config(project_dir) if has_config(project_dir) else {}
+            serial_port = config.get('serial', {}).get('port')
+            if not serial_port:
+                print("\n错误: 未指定串口")
+                print("请使用 --serial 指定串口，或先生成配置文件 (--init)")
+                sys.exit(1)
+            baudrate = config.get('serial', {}).get('baudrate', baudrate)
+        
+        monitor_serial(serial_port, baudrate, args.monitor_timeout)
+        return
+    
+    # 5. 烧录 (可选编译)
+    config = {}
+    
+    if has_config(project_dir) and not args.force_config:
+        print("\n检测到已有配置，加载配置...")
+        config = load_config(project_dir)
+    else:
+        print("\n未检测到配置文件，请先运行 --init 初始化配置")
+        print("命令: python agent_flash.py --init")
+        sys.exit(1)
+    
+    # 编译 (如果有 --build)
     if args.build:
         project = auto_detect_project(project_dir)
         if project:
-            elf = build_project(project.path, project.type)
+            print(f"\n编译项目: {project.type.upper()} - {project.name}")
+            build_result = build_project(project.path, project.type)
+            if build_result:
+                print(f"编译产物: {build_result}")
+            else:
+                print("\n编译失败，跳过烧录")
+                sys.exit(1)
         else:
             print("未找到项目文件，跳过编译")
     
-    if args.elf:
-        # 规范化并验证 ELF 文件路径
-        elf_path, error = validate_path(args.elf, project_dir)
+    # 烧录
+    if args.flash:
+        ext = Path(args.flash).suffix.lower()
+        if ext == '.bin' and not args.addr:
+            print("错误: .bin 文件需要指定 --addr 参数（如 --addr 0x08000000）")
+            sys.exit(1)
+        
+        flash_path, error = validate_path(args.flash, project_dir)
         if error:
             print(f"错误: {error}")
             sys.exit(1)
+        
+        flash_info, error = get_flash_info(flash_path, args.addr)
+        if error:
+            print(f"错误: {error}")
+            sys.exit(1)
+        
+        device = args.device or config.get('flasher', {}).get('device', '<芯片型号>')
+        flasher_type = args.flasher or config.get('flasher', {}).get('type', 'jlink')
+        
+        print(f"\n烧录器: {flasher_type}")
+        print(f"芯片: {device}")
+        
+        if flasher_type == 'jlink':
+            flash_with_jlink(flash_info, device=device, speed=args.speed, interface=args.interface)
+        elif flasher_type == 'stlink':
+            flash_with_stlink(flash_info, device=device, speed=args.speed, interface=args.interface)
+        elif flasher_type == 'cmsis_dap':
+            flash_with_cmsis_dap(flash_info, device=device, speed=args.speed, interface=args.interface)
     else:
-        elf_path = None
+        print("\n未指定操作，可用指令:")
+        print("  --build-only      仅编译项目")
+        print("  --monitor-only    仅监控串口")
+        print("  --flash <文件>    烧录固件")
+        print("  --build --flash   编译后烧录")
+        print("  --detect          检测环境")
+        print("  --init            初始化配置")
+        print("  --force-config    重新配置")
+        return
     
-    if elf_path:
-        if args.flasher == 'jlink':
-            flash_with_jlink(
-                elf_path,
-                device=args.device or "STM32F407ZG",
-                speed=args.speed,
-                interface=args.interface
-            )
-    else:
-        print("未指定 --elf 参数或文件不存在")
-    
-    if not args.skip_monitor and args.serial:
-        monitor_serial(args.serial, args.baudrate, args.monitor_timeout)
+    # 串口监控
+    serial_port = args.serial or config.get('serial', {}).get('port')
+    if not args.skip_monitor and serial_port:
+        monitor_serial(serial_port, args.baudrate, args.monitor_timeout)
 
 
 if __name__ == "__main__":

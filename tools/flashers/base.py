@@ -26,8 +26,14 @@ class FlasherBase(ABC):
         pass
     
     @abstractmethod
-    def flash(self, elf_path: str) -> bool:
-        """烧录固件"""
+    def flash(self, file_path: str, flash_type: str = "elf", addr: str = None) -> bool:
+        """烧录固件
+        
+        Args:
+            file_path: 烧录文件路径
+            flash_type: 文件类型 (elf/hex/bin)
+            addr: 烧录地址（仅 bin 文件需要）
+        """
         pass
     
     @abstractmethod

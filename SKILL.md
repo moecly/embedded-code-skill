@@ -1,148 +1,434 @@
 ---
 name: embedded-code
-description: 嵌入式代码工具集 - 支持 Keil/Makefile/CMake 项目自动检测，J-Link/ST-Link/CMSIS-DAP 烧录，串口监控
+license: MIT
+github: https://github.com/moecly/embedded-code-skill
+description: 嵌入式固件烧录工具集，支持 Keil/Makefile/CMake 项目自动检测，J-Link/ST-Link/CMSIS-DAP 烧录，串口监控。
+metadata:
+  author: moecly
+  version: "1.0.0"
 ---
 
-# 功能
+# Embedded Code Skill
 
-**编译 → 烧录 → 重置 → 监控 → 分析 → 修改 → 循环**
+嵌入式固件烧录工具集，简化 **编译 → 烧录 → 监控 → 调试** 流程。
 
-1. 自动检测项目类型（Keil/Makefile/CMake）
-2. 自动检测烧录器（J-Link/ST-Link/CMSIS-DAP）
-3. 串口监控与输出分析
-4. 调试闭环（最多3次重试）
+## 前置检查
 
----
-
-# Agent 使用指南
-
-## 推荐：使用 agent_flash.py（最简单）
+首次使用前，先检测环境：
 
 ```bash
-# 1. 检测环境
 python "SKILL/workflows/agent_flash.py" --detect
-
-# 2. 烧录并监控（常用）
-python "SKILL/workflows/agent_flash.py" --project D:/workspacePrj/JL5104 --elf MDK-ARM/test0/test0.elf --device STM32F407ZGTx --serial COM3
-
-# 3. 编译+烧录+监控
-python "SKILL/workflows/agent_flash.py" --project D:/workspacePrj/JL5104 --build --elf MDK-ARM/test0/test0.elf --device STM32F407ZGTx --serial COM3
 ```
 
-### agent_flash.py 参数说明
+输出会显示检测到的烧录器和串口。如果没有检测到烧录器，请确保：
+- 烧录器已通过 USB 连接
+- 驱动已正确安装
 
-| 参数 | 说明 | 示例 |
-|------|------|------|
-| `--project` | 工程目录 | `D:/workspacePrj/JL5104` |
-| `--elf` | 烧录文件（相对工程目录） | `MDK-ARM/test0/test0.elf` |
-| `--flasher` | 烧录器类型 | `jlink` / `stlink` / `cmsis_dap` |
-| `--device` | 芯片型号 | `STM32F407ZGTx` |
-| `--serial` | 串口端口 | `COM3` |
-| `--baudrate` | 波特率 | `115200` |
-| `--speed` | 烧录速度(KHz) | `4000` |
-| `--interface` | 接口 | `SWD` / `JTAG` |
-| `--build` | 编译后再烧录 | flag |
-| `--skip-monitor` | 跳过串口监控 | flag |
-| `--detect` | 仅检测环境 | flag |
+烧录器（J-Link/ST-Link/CMSIS-DAP）是**可选工具**，根据用户实际拥有的硬件决定。
 
 ---
 
-## 备选：使用 detect.py 和 debug_loop.py
+## 执行哲学
+
+**遇到问题 → 反馈用户，而非自行尝试修复。**
+
+### 决策树
+
+```
+脚本执行失败？
+├── 错误信息明确 → 将错误反馈给用户，等待指示
+├── 错误信息模糊 → 尝试诊断（如检查连接、重试），仍失败则反馈用户
+└── 用户明确要求烧录但无烧录器 → 告知用户无可用烧录器，建议检查连接
+```
+
+### 约束
+
+1. **不擅用命令行**：不要绕过 skill 脚本，直接调用 `JLink.exe`、`openocd` 等工具
+2. **执行前确认**：烧录前显示检测到的参数，询问用户确认后再执行
+3. **不确定就问**：无法判断的信息向用户确认，不猜测
+
+---
+
+## 工具选择
+
+### 主脚本：agent_flash.py
+
+所有操作优先使用 `agent_flash.py`，它会自动处理项目检测、配置管理、烧录、监控。
+
+### 使用场景
+
+| 场景 | 命令 | 说明 |
+|------|------|------|
+| 检测环境 | `--detect` | 查看可用烧录器和串口 |
+| 初始化配置 | `--init` | 输出 JSON，供 Agent 解析后生成配置 |
+| 烧录固件 | `--flash <文件>` | 烧录 .elf/.hex/.bin |
+| 编译+烧录 | `--build --flash <文件>` | 编译后烧录 |
+| 跳过监控 | `--skip-monitor` | 仅烧录，不监控串口 |
+
+### 烧录文件类型
+
+| 类型 | 说明 | 参数 |
+|------|------|------|
+| `.elf` | Keil/GCC 编译产物，包含调试信息 | `--flash firmware.elf` |
+| `.hex` | Intel hex 格式 | `--flash firmware.hex` |
+| `.bin` | 纯二进制，需指定地址 | `--flash firmware.bin --addr 0x08000000` |
+
+> **注意**：ST-Link 不支持 .elf 文件
+
+---
+
+## 快速开始
 
 ### 1. 检测环境
 
 ```bash
-# 检测烧录器和串口
-python "SKILL/workflows/detect.py" --json
-
-# 检测项目和编译器
-python "SKILL/workflows/build.py" --detect --json --search "工程目录"
+python "SKILL/workflows/agent_flash.py" --detect
 ```
 
-### 2. 启动调试闭环
+### 2. 初始化配置
 
 ```bash
-python "SKILL/workflows/debug_loop.py" --config "工程目录/configs/project.yaml"
+# 使用当前工作目录
+python "SKILL/workflows/agent_flash.py" --init
+
+# 或指定项目目录
+python "SKILL/workflows/agent_flash.py" --project "<项目目录>" --init
 ```
 
-### 3. 仅检测不烧录
+脚本输出 JSON 格式，包含：
+- 检测到的项目信息
+- 可用烧录器列表
+- 可用串口列表
+
+Agent 解析后询问用户：芯片型号、串口、波特率等，然后生成 `configs/project.yaml`。
+
+### 3. 后续使用
 
 ```bash
-python "SKILL/workflows/debug_loop.py" --detect --config "工程目录/configs/project.yaml"
+# 使用当前目录
+python "SKILL/workflows/agent_flash.py" --flash "<固件文件>"
+
+# 或指定项目目录
+python "SKILL/workflows/agent_flash.py" --project "<项目目录>" --flash "<固件文件>"
+```
+
+配置文件保存在 `<项目目录>/configs/project.yaml`，后续运行自动加载。
+
+---
+
+## 常用命令示例
+
+### 一、检测与配置
+
+#### 1. 检测环境（JSON 格式，供 Agent 解析）
+
+```bash
+python "SKILL/workflows/agent_flash.py" --detect --json
+```
+
+**输出**：烧录器列表（含芯片连接状态）、串口列表
+
+#### 2. 检测环境（人类可读）
+
+```bash
+python "SKILL/workflows/agent_flash.py" --detect
+```
+
+**输出**：烧录器名称、固件版本、芯片连接状态、串口列表
+
+#### 3. 初始化配置（当前目录）
+
+```bash
+python "SKILL/workflows/agent_flash.py" --init
+```
+
+**何时使用**：首次配置项目，输出 JSON 供 Agent 解析后生成配置文件
+
+#### 4. 初始化配置（指定目录）
+
+```bash
+python "SKILL/workflows/agent_flash.py" --project "<项目目录>" --init
+```
+
+#### 5. 强制重新配置
+
+```bash
+python "SKILL/workflows/agent_flash.py" --force-config --init
+```
+
+**何时使用**：更换烧录器或串口后重新生成配置
+
+---
+
+### 二、编译
+
+#### 6. 单独编译项目
+
+```bash
+python "SKILL/workflows/agent_flash.py" --build-only
+```
+
+**何时使用**：修改代码后先编译验证，不烧录
+
+#### 7. 编译后烧录
+
+```bash
+python "SKILL/workflows/agent_flash.py" --build --flash "<固件文件>"
+```
+
+**何时使用**：修改代码后编译并烧录到芯片
+
+#### 8. 编译后烧录（跳过监控）
+
+```bash
+python "SKILL/workflows/agent_flash.py" --build --flash "<固件文件>" --skip-monitor
 ```
 
 ---
 
-## 工作流程
+### 三、烧录
 
+#### 9. 烧录 .hex 文件（最常用）
+
+```bash
+python "SKILL/workflows/agent_flash.py" --flash "<固件文件>.hex"
 ```
-用户触发 skill
-       ↓
-检测环境 (agent_flash.py --detect)
-       ↓
-分析检测结果，确定:
-- 烧录器类型 (jlink/stlink/cmsis_dap)
-- 芯片型号 (STM32F407ZGTx)
-- 串口端口 (COM3)
-       ↓
-执行烧录+监控
-python agent_flash.py --project ... --elf ... --device ... --serial ...
-       ↓
-分析串口输出
-       ↓
-用户判断代码是否正常
-       ↓
-异常? → 修改代码 → 重新烧录 (最多3次)
-       ↓
-正常? → 完成
+
+**说明**：自动从配置读取芯片型号和烧录器
+
+#### 10. 烧录 .elf 文件
+
+```bash
+python "SKILL/workflows/agent_flash.py" --flash "<固件文件>.elf"
+```
+
+**注意**：ST-Link 不支持 .elf，需使用 J-Link 或 CMSIS-DAP
+
+#### 11. 烧录 .bin 文件（需指定地址）
+
+```bash
+python "SKILL/workflows/agent_flash.py" --flash "<固件文件>.bin" --addr 0x08000000
+```
+
+**说明**：`.bin` 文件不含地址信息，必须用 `--addr` 指定烧录地址
+
+#### 12. 指定烧录器类型
+
+```bash
+python "SKILL/workflows/agent_flash.py" --flash "<固件文件>" --flasher stlink
+```
+
+**可选值**：`jlink` / `stlink` / `cmsis_dap`
+
+#### 13. 指定接口和速度
+
+```bash
+python "SKILL/workflows/agent_flash.py" --flash "<固件文件>" \
+    --interface JTAG --speed 2000
 ```
 
 ---
 
-# 配置文件（可选）
+### 四、串口监控
 
-如需持久化配置，创建 `工程目录/configs/project.yaml`：
+#### 14. 单独监控串口
+
+```bash
+python "SKILL/workflows/agent_flash.py" --monitor-only
+```
+
+**说明**：从配置读取串口和波特率
+
+#### 15. 指定串口监控
+
+```bash
+python "SKILL/workflows/agent_flash.py" --monitor-only \
+    --serial "<串口号>" --baudrate 9600
+```
+
+#### 16. 烧录后监控串口
+
+```bash
+python "SKILL/workflows/agent_flash.py" --flash "<固件文件>" \
+    --serial "<串口号>" --baudrate 115200
+```
+
+#### 17. 指定监控超时
+
+```bash
+python "SKILL/workflows/agent_flash.py" --flash "<固件文件>" \
+    --monitor-timeout 30
+```
+
+**说明**：默认超时 10 秒，长时间等待输出可用 30 秒或更长
+
+---
+
+### 五、完整工作流
+
+#### 18. 典型开发循环（修改 → 编译 → 烧录 → 监控）
+
+```bash
+# 第一次：初始化配置
+python "SKILL/workflows/agent_flash.py" --init
+
+# 后续循环：编译 → 烧录 → 监控
+python "SKILL/workflows/agent_flash.py" --build --flash "<固件文件>"
+```
+
+#### 19. 跳过监控，只编译烧录
+
+```bash
+python "SKILL/workflows/agent_flash.py" --build --flash "<固件文件>" --skip-monitor
+```
+
+#### 20. 指定所有参数（不依赖配置文件）
+
+```bash
+python "SKILL/workflows/agent_flash.py" \
+    --flash "<固件文件>" \
+    --flasher jlink \
+    --device "<芯片型号>" \
+    --interface SWD \
+    --speed 4000 \
+    --serial "<串口号>" \
+    --baudrate 115200 \
+    --skip-monitor
+```
+
+**何时使用**：临时烧录，不想生成配置文件
+
+---
+
+### 六、错误处理
+
+#### 芯片未连接
+
+`--detect` 输出中 `device_connected: false` 时：
+1. 检查芯片供电
+2. 检查 SWD/JTAG 连线
+3. 确认芯片型号正确
+
+#### 烧录失败
+
+1. 反馈错误信息给用户
+2. 建议用户检查硬件连接
+3. 最多重试 3 次
+
+#### 无配置文件
+
+运行 `--init` 初始化配置，或手动创建 `configs/project.yaml`
+
+---
+
+## 参数说明
+
+| 参数 | 必填 | 说明 | 示例 |
+|------|------|------|------|
+| `--project` / `-p` | 否 | 工程目录（默认当前目录） | `<项目目录>` |
+| `--flash` | 否 | 烧录文件 | `<固件文件>` |
+| `--addr` | 否 | 烧录地址（仅 .bin 需要） | `0x08000000` |
+| `--device` / `-d` | 否 | 芯片型号 | `<芯片型号>` |
+| `--serial` / `-s` | 否 | 串口端口 | `<串口号>` |
+| `--baudrate` / `-b` | 否 | 波特率 | `115200` |
+| `--flasher` / `-f` | 否 | 烧录器类型 | `jlink` |
+| `--speed` | 否 | 烧录速度 (KHz) | `4000` |
+| `--interface` / `-i` | 否 | 接口 | `SWD` / `JTAG` |
+| `--monitor-timeout` / `-t` | 否 | 监控超时 (秒) | `10` |
+| `--build` | 否 | 编译后再烧录 | flag |
+| `--build-only` | 否 | 仅编译，不烧录 | flag |
+| `--monitor-only` | 否 | 仅监控串口，不烧录 | flag |
+| `--skip-monitor` | 否 | 跳过串口监控 | flag |
+| `--detect` | 否 | 仅检测环境 | flag |
+| `--init` | 否 | 初始化配置，输出 JSON | flag |
+| `--force-config` | 否 | 强制重新配置 | flag |
+| `--json` | 否 | 输出 JSON 格式结果 | flag |
+
+---
+
+## 配置文件
+
+初始化后生成 `<项目目录>/configs/project.yaml`：
 
 ```yaml
+project:
+  name: "<项目名称>"
+  type: "cmake"
+
 flasher:
   type: "jlink"
-  device: "STM32F407ZGTx"
+  device: "<芯片型号>"
+  speed: 4000
+  interface: "SWD"
 
 serial:
-  port: "COM3"
+  port: "<串口号>"
   baudrate: 115200
-
-flash:
-  elf: "MDK-ARM/test0/test0.elf"
 
 debug:
   max_retries: 3
 ```
 
----
-
-# 文档目录
-
-| 文档 | 说明 |
+| 字段 | 说明 |
 |------|------|
-| [快速开始](docs/quickstart.md) | 最简使用流程 |
-| [配置说明](docs/config.md) | 配置文件详解 |
-| [编译器](docs/compilers.md) | Keil/Makefile/CMake |
-| [烧录器](docs/flashers.md) | J-Link/ST-Link/OpenOCD |
-| [扩展指南](docs/extending.md) | 添加新工具 |
+| `project.type` | 项目类型：`keil` / `makefile` / `cmake` |
+| `flasher.type` | 烧录器：`jlink` / `stlink` / `cmsis_dap` |
+| `flasher.device` | 芯片型号 |
+| `flasher.interface` | 接口：`SWD` 或 `JTAG` |
+| `serial.port` | 串口号 |
+| `serial.baudrate` | 波特率 |
 
 ---
 
-# 脚本路径速查
+## 常见问题
+
+**Q: 烧录失败？**
+A: 请用户检查：
+- 烧录器与芯片是否正常连接（SWD/JTAG 接口）
+- 芯片型号是否与实际匹配
+- 芯片是否正常供电
+
+**Q: 串口无输出？**
+A: 请用户检查：
+- 串口号是否正确（用 `--detect` 查看）
+- 波特率是否与固件配置一致
+- 串口是否被其他程序占用
+
+**Q: .bin 文件如何烧录？**
+A: 必须指定烧录地址：
+```bash
+python "SKILL/workflows/agent_flash.py" --flash firmware.bin --addr 0x08000000
+```
+
+**Q: ST-Link 不支持 elf？**
+A: 是的，ST-Link 只支持 .hex 和 .bin。使用 J-Link 或 CMSIS-DAP 可烧录 .elf。
+
+**Q: 工具运行出错？**
+A: 安装依赖并运行测试验证：
+```bash
+pip install -r requirements.txt
+pytest tests/ -v
+```
+
+---
+
+## References 索引
+
+| 文件 | 何时加载 |
+|------|---------|
+| `references/agent-guide.md` | Agent 工作流指南，首次使用时必读 |
+| `references/config.md` | 需要生成或解析 `configs/project.yaml` 时 |
+
+---
+
+## 脚本路径速查
 
 | 功能 | 脚本 |
 |------|------|
-| **Agent 推荐** | `workflows/agent_flash.py` |
+| **推荐** | `workflows/agent_flash.py` |
 | 环境检测 | `workflows/detect.py` |
 | 构建检测 | `workflows/build.py` |
 | 调试闭环 | `workflows/debug_loop.py` |
 
-> **路径说明**
-> - `SKILL`：技能工作区路径（Python 脚本所在目录）
-> - `--project`：用户项目目录（由用户指定）
-> - Python 脚本在 SKILL 工作区内执行，用户代码在 WORKSPACE 中
+> - `SKILL`：技能工作区路径
+> - `--project`：用户项目目录

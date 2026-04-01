@@ -50,13 +50,18 @@ class CMSISDAPFlasher(FlasherBase):
         except:
             return []
     
-    def flash(self, elf_path: str) -> bool:
+    def flash(self, file_path: str, flash_type: str = "elf", addr: str = None) -> bool:
+        if flash_type == 'bin' and addr:
+            program_cmd = f"program {file_path} {addr} verify reset"
+        else:
+            program_cmd = f"program {file_path} verify reset"
+        
         cfg = f"""
 adapter speed {self.speed}
 transport select {self.interface.lower()}
 init
 reset halt
-program {elf_path} verify reset
+{program_cmd}
 shutdown
 """
         try:

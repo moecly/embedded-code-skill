@@ -1,0 +1,7 @@
+# 核心依赖
+pyyaml>=6.0
+pyserial>=3.0
+
+# 测试依赖
+pytest>=7.0.0
+pytest-mock>=3.0.0
