@@ -97,7 +97,7 @@ python workflows/agent_flash.py --project "您的项目目录" --flash "firmware
 可以运行自动化测试来检验：
 
 ```bash
-# 安装测试依赖
+# 安装依赖
 pip install -r requirements.txt
 
 # 运行测试

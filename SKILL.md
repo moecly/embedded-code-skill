@@ -237,7 +237,7 @@ python "SKILL/workflows/agent_flash.py" --project "<目录>" --flash firmware.bi
 A: 是的，ST-Link 只支持 .hex 和 .bin。使用 J-Link 或 CMSIS-DAP 可烧录 .elf。
 
 **Q: 工具运行出错？**
-A: 运行测试验证：
+A: 安装依赖并运行测试验证：
 ```bash
 pip install -r requirements.txt
 pytest tests/ -v

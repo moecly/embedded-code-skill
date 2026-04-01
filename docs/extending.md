@@ -96,7 +96,7 @@ class MySerialMonitor:
 新增烧录器或编译器后，建议添加对应的测试用例：
 
 ```bash
-# 安装测试依赖
+# 安装依赖
 pip install -r requirements.txt
 
 # 运行测试
