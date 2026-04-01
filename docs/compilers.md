@@ -19,7 +19,7 @@ UV4.exe -j0 -b "项目文件.uvprojx" [-o log.txt]
 ### 示例
 
 ```bash
-"E:/develop/mdk5/core/UV4/UV4.exe" -j0 -b "D:/project/MDK-ARM/test0.uvprojx"
+"UV4.exe" -j0 -b "D:/project/MDK-ARM/project.uvprojx"
 ```
 
 ### 检测工具

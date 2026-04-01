@@ -25,8 +25,8 @@ serial:
   timeout: 10
 
 flash:
-  elf: "../MDK-ARM/test0/test0.elf"
-  hex: "../MDK-ARM/test0/test0.hex"
+  elf: "../MDK-ARM/project/project.elf"
+  hex: "../MDK-ARM/project/project.hex"
 
 debug:
   max_retries: 3

@@ -55,20 +55,27 @@ class STLinkFlasher(FlasherBase):
         except:
             return []
     
-    def flash(self, elf_path: str) -> bool:
-        if not os.path.exists(elf_path):
-            print(f"File not found: {elf_path}")
+    def flash(self, file_path: str, flash_type: str = "elf", addr: str = None) -> bool:
+        if not os.path.exists(file_path):
+            print(f"File not found: {file_path}")
             return False
+        
+        if flash_type not in ['hex', 'bin']:
+            print(f"STLink only supports .hex and .bin files, not .{flash_type}")
+            return False
+        
+        flash_addr = addr or "0x08000000"
         
         try:
             cmd = [
                 self.stlink_path,
-                "-c", f"ID={self.device}",
-                "-P", elf_path, "0x08000000",
+                "-c", f"ID={self.device}" if self.device else "",
+                "-P", file_path, flash_addr,
                 "-V", "15",
                 "-Rst",
                 "-Run"
             ]
+            cmd = [c for c in cmd if c]
             result = subprocess.run(cmd, capture_output=True, timeout=60)
             output = result.stdout.decode('utf-8', errors='ignore')
             return "Programming" in output and "Verification" in output

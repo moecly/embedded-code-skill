@@ -50,8 +50,14 @@ class MyFlasher(FlasherBase):
         """列出所有连接的设备"""
         pass
     
-    def flash(self, elf_path: str) -> bool:
-        """烧录固件"""
+    def flash(self, file_path: str, flash_type: str = "elf", addr: str = None) -> bool:
+        """烧录固件
+        
+        Args:
+            file_path: 烧录文件路径
+            flash_type: 文件类型 (elf/hex/bin)
+            addr: 烧录地址（仅 bin 文件需要）
+        """
         pass
     
     def reset(self) -> bool:
@@ -82,3 +88,23 @@ class MySerialMonitor:
     """自定义串口监控实现"""
     pass
 ```
+
+---
+
+## 添加测试用例
+
+新增烧录器或编译器后，建议添加对应的测试用例：
+
+```bash
+# 安装测试依赖
+pip install -r requirements.txt
+
+# 运行测试
+pytest tests/ -v
+```
+
+测试文件位置：
+- 烧录器测试：`tests/test_flashers/test_xxx.py`
+- 编译器测试：`tests/test_builders/test_xxx.py`
+
+参考现有测试文件的写法，确保基本功能有测试覆盖。

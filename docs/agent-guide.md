@@ -21,8 +21,8 @@ python "SKILL/workflows/agent_flash.py" --detect
 
 ```bash
 python "SKILL/workflows/agent_flash.py" \
-    --project "D:/workspacePrj/JL5104" \
-    --elf "MDK-ARM/test0/test0.elf" \
+    --project "D:/project/firmware" \
+    --flash "MDK-ARM/project/firmware.hex" \
     --device "STM32F407ZGTx" \
     --serial "COM3"
 ```
@@ -31,9 +31,9 @@ python "SKILL/workflows/agent_flash.py" \
 
 ```bash
 python "SKILL/workflows/agent_flash.py" \
-    --project "D:/workspacePrj/JL5104" \
+    --project "D:/project/firmware" \
     --build \
-    --elf "MDK-ARM/test0/test0.elf" \
+    --flash "MDK-ARM/project/firmware.hex" \
     --device "STM32F407ZGTx" \
     --serial "COM3"
 ```
@@ -42,8 +42,8 @@ python "SKILL/workflows/agent_flash.py" \
 
 ```bash
 python "SKILL/workflows/agent_flash.py" \
-    --project "D:/workspacePrj/JL5104" \
-    --elf "MDK-ARM/test0/test0.elf" \
+    --project "D:/project/firmware" \
+    --flash "MDK-ARM/project/firmware.hex" \
     --device "STM32F407ZGTx" \
     --skip-monitor
 ```
@@ -56,21 +56,21 @@ python "SKILL/workflows/agent_flash.py" \
 
 | 规则 | 说明 | 示例 |
 |------|------|------|
-| **使用正斜杠** `/` | 跨平台兼容 | `D:/project/test.elf` |
-| **相对路径** | 相对于 `--project` | `MDK-ARM/test0/test0.elf` |
-| **始终使用引号** | 防止空格问题 | `"D:/My Project/test.elf"` |
+| **使用正斜杠** `/` | 跨平台兼容 | `D:/project/firmware.hex` |
+| **相对路径** | 相对于 `--project` | `MDK-ARM/project/firmware.hex` |
+| **始终使用引号** | 防止空格问题 | `"D:/My Project/firmware.hex"` |
 
 ### 正确 vs 错误
 
 ```bash
 # ✅ 正确写法
---project "D:/workspacePrj/JL5104"
---elf "MDK-ARM/test0/test0.elf"
---elf "../output/firmware.hex"
+--project "D:/project/firmware"
+--flash "MDK-ARM/project/firmware.hex"
+--flash "../output/firmware.hex"
 
 # ❌ 错误写法
---elf "D:\workspacePrj\JL5104\MDK-ARM\test0\test0.elf"
---elf D:/project/test.elf
+--flash "D:\My Projects\firmware\firmware.hex"
+--flash D:/project/firmware.hex
 ```
 
 ### 路径解析说明
@@ -101,8 +101,9 @@ python "SKILL/workflows/agent_flash.py" \
 
 | 参数 | 必填 | 说明 | 示例 |
 |------|------|------|------|
-| `--project` | 是 | 工程目录（绝对或相对路径） | `D:/workspacePrj/JL5104` |
-| `--elf` | 是 | 烧录文件（相对于工程目录） | `MDK-ARM/test0/test0.elf` |
+| `--project` | 是 | 工程目录 | `D:/project/firmware` |
+| `--flash` | 是 | 烧录文件（支持 .elf/.hex/.bin） | `MDK-ARM/project/firmware.hex` |
+| `--addr` | 否 | 烧录地址（仅 .bin 需要） | `0x08000000` |
 | `--device` | 是 | 芯片型号 | `STM32F407ZGTx` |
 | `--serial` | 否 | 串口端口 | `COM3` |
 | `--flasher` | 否 | 烧录器类型 | `jlink` (默认) |
@@ -136,7 +137,7 @@ python "SKILL/workflows/agent_flash.py" \
 ## 常见问题
 
 **Q: 路径有空格怎么办？**
-A: 用引号包裹路径：`"D:/My Project/test.elf"`
+A: 用引号包裹路径：`"D:/My Project/firmware.hex"`
 
 **Q: Windows 反斜杠可以用吗？**
 A: 可以，脚本会自动转换，但不建议使用
@@ -146,3 +147,10 @@ A: 相对于 `--project` 参数指定的目录
 
 **Q: 找不到文件怎么办？**
 A: 检查路径是否正确，使用正斜杠 `/`
+
+**Q: 工具运行出错？**
+A: 询问用户是否执行自动化测试：
+```bash
+pip install -r requirements.txt
+pytest tests/ -v
+```

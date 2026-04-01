@@ -68,10 +68,16 @@ class JLinkFlasher(FlasherBase):
         except:
             return []
     
-    def flash(self, elf_path: str) -> bool:
-        elf_path = elf_path.replace('\\', '/')
+    def flash(self, file_path: str, flash_type: str = "elf", addr: str = None) -> bool:
+        file_path = file_path.replace('\\', '/')
+        
+        if flash_type == 'bin' and addr:
+            load_cmd = f"loadfile {file_path} {addr}"
+        else:
+            load_cmd = f"loadfile {file_path}"
+        
         script = f"""connect
-loadfile {elf_path}
+{load_cmd}
 go
 exit
 """
