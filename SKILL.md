@@ -142,4 +142,7 @@ debug:
 | 构建检测 | `workflows/build.py` |
 | 调试闭环 | `workflows/debug_loop.py` |
 
-SKILL = `C:\Users\m\.config\opencode\skills\embedd-core-skill`
+> **路径说明**
+> - `SKILL`：技能工作区路径（Python 脚本所在目录）
+> - `--project`：用户项目目录（由用户指定）
+> - Python 脚本在 SKILL 工作区内执行，用户代码在 WORKSPACE 中
