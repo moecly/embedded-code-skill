@@ -251,7 +251,10 @@ class TestInitConfig:
     
     def test_init_has_flashers(self, mocker, temp_project):
         """测试 init_config 包含 flashers 字段"""
-        mocker.patch('workflows.agent_flash.JLinkFlasher')
+        mock_jlink = mocker.patch('workflows.agent_flash.JLinkFlasher')
+        mock_jlink.return_value.detect.return_value = True
+        mock_jlink.return_value.check_device.return_value = (True, "芯片连接正常")
+        mock_jlink.return_value.list_devices.return_value = ["J-Link V12"]
         mocker.patch('workflows.agent_flash.STLinkFlasher')
         mocker.patch('workflows.agent_flash.CMSISDAPFlasher')
         

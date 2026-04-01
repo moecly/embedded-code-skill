@@ -124,9 +124,33 @@ def init_config(project_dir):
         'serial_ports': []
     }
     
-    flashers, available_types = detect_flasher_info()
-    result['flashers'] = flashers
-    result['available_flashers'] = available_types
+    # 检测烧录器并检查芯片连接状态
+    jlink = JLinkFlasher()
+    if jlink.detect():
+        device_connected, device_msg = jlink.check_device()
+        result['flashers'].append({
+            'type': 'jlink',
+            'name': 'J-Link',
+            'device_connected': device_connected,
+            'device_message': device_msg
+        })
+        result['available_flashers'].append('jlink')
+    
+    stlink = STLinkFlasher()
+    if stlink.detect():
+        result['flashers'].append({
+            'type': 'stlink',
+            'name': 'ST-Link'
+        })
+        result['available_flashers'].append('stlink')
+    
+    cmsis = CMSISDAPFlasher()
+    if cmsis.detect():
+        result['flashers'].append({
+            'type': 'cmsis_dap',
+            'name': 'CMSIS-DAP'
+        })
+        result['available_flashers'].append('cmsis_dap')
     
     result['serial_ports'] = detect_serial_info()
     
@@ -207,10 +231,13 @@ def detect_environment():
     print("检测烧录器...")
     jlink = JLinkFlasher()
     if jlink.detect():
+        device_connected, device_msg = jlink.check_device()
         result["flashers"].append({
             "type": "jlink",
             "available": True,
-            "devices": jlink.list_devices()
+            "devices": jlink.list_devices(),
+            "device_connected": device_connected,
+            "device_message": device_msg
         })
     
     stlink = STLinkFlasher()
@@ -421,6 +448,10 @@ def main():
                     print(f"  {f['type']}: 可用")
                     for d in f.get('devices', []):
                         print(f"    {d}")
+                    if f.get('device_connected') is False:
+                        print(f"  [!] 芯片未连接: {f.get('device_message', '')}")
+                    elif f.get('device_connected') is True:
+                        print(f"  [OK] 芯片连接正常")
             else:
                 print("  无可用烧录器")
             
