@@ -149,7 +149,7 @@ class TestConfigLoading:
         config = load_config(str(temp_project))
         
         assert config['flasher']['type'] == 'jlink'
-        assert config['flasher']['device'] == 'STM32F407ZG'
+        assert config['flasher']['device'] == '<芯片型号>'
     
     def test_load_nonexistent_config(self, temp_project):
         """测试加载不存在的配置"""
@@ -166,7 +166,7 @@ class TestConfigLoading:
             loaded = yaml.safe_load(f)
         
         assert loaded['flasher']['type'] == 'jlink'
-        assert loaded['flasher']['device'] == 'STM32F407ZG'
+        assert loaded['flasher']['device'] == '<芯片型号>'
 
 
 class TestFlashWithJLink:

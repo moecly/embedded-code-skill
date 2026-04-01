@@ -1,18 +1,18 @@
-# 项目配置 - 由 agent_flash.py --init 自动生成
+# 项目配置 - 由 agent_flash.py 自动生成
 # 此文件放在用户项目目录下的 configs/ 文件夹中
 
 project:
-  name: "my_firmware"          # 项目名称
-  type: "keil"                 # 项目类型: keil / makefile / cmake
+  name: "<项目名称>"            # 项目名称
+  type: "cmake"                # 项目类型: keil / makefile / cmake
 
 flasher:
   type: "jlink"                # 烧录器类型: jlink / stlink / cmsis_dap
-  device: "STM32F407ZGTx"     # 芯片型号（如 STM32F103RC、STM32F407ZG）
+  device: "<芯片型号>"          # 芯片型号（如 STM32F103RC、STM32F407ZG）
   speed: 4000                  # 烧录速度 (KHz)
   interface: "SWD"             # 调试接口: SWD / JTAG
 
 serial:
-  port: "COM3"                 # 串口号
+  port: "<串口号>"              # 串口号（如 COM3、/dev/ttyUSB0）
   baudrate: 115200            # 波特率
 
 debug:

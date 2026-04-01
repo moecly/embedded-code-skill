@@ -4,7 +4,7 @@
 
 ```yaml
 build:
-  type: "keil"           # keil / makefile / cmake
+  type: "cmake"          # keil / makefile / cmake
   search_root: ".."      # 相对于 configs 目录的工程根目录
   keil:
     path: null           # 留空自动检测，或指定路径
@@ -15,18 +15,18 @@ build:
 
 flasher:
   type: "jlink"          # jlink / stlink / cmsis_dap
-  device: "STM32F407ZGTx"
+  device: "<芯片型号>"
   speed: 4000            # KHz
   interface: "SWD"       # SWD / JTAG
 
 serial:
-  port: "COM3"
+  port: "<串口号>"
   baudrate: 115200
   timeout: 10
 
 flash:
-  elf: "../MDK-ARM/project/project.elf"
-  hex: "../MDK-ARM/project/project.hex"
+  elf: "../build/project.elf"
+  hex: "../build/project.hex"
 
 debug:
   max_retries: 3
@@ -50,15 +50,9 @@ debug:
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | `type` | string | 烧录器类型：jlink/stlink/cmsis_dap |
-| `device` | string | 芯片型号，如 STM32F407ZGTx |
-| `speed` | int | 烧录速度 (KHz) |
-| `interface` | string | 接口：SWD / JTAG |
-
-### serial
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `port` | string | 串口端口，如 COM3 |
+| `device` | string | 芯片型号，如 `<芯片型号>` |
+| ... |
+| `port` | string | 串口端口，如 `<串口号>` |
 | `baudrate` | int | 波特率 |
 | `timeout` | int | 超时时间（秒） |
 

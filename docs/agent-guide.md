@@ -22,9 +22,9 @@ python "SKILL/workflows/agent_flash.py" --detect
 ```bash
 python "SKILL/workflows/agent_flash.py" \
     --project "D:/project/firmware" \
-    --flash "MDK-ARM/project/firmware.hex" \
-    --device "STM32F407ZGTx" \
-    --serial "COM3"
+    --flash "build/firmware.hex" \
+    --device "<芯片型号>" \
+    --serial "<串口号>"
 ```
 
 ### 场景 3：编译 + 烧录 + 监控
@@ -33,9 +33,9 @@ python "SKILL/workflows/agent_flash.py" \
 python "SKILL/workflows/agent_flash.py" \
     --project "D:/project/firmware" \
     --build \
-    --flash "MDK-ARM/project/firmware.hex" \
-    --device "STM32F407ZGTx" \
-    --serial "COM3"
+    --flash "build/firmware.hex" \
+    --device "<芯片型号>" \
+    --serial "<串口号>"
 ```
 
 ### 场景 4：跳过监控，只烧录
@@ -43,8 +43,8 @@ python "SKILL/workflows/agent_flash.py" \
 ```bash
 python "SKILL/workflows/agent_flash.py" \
     --project "D:/project/firmware" \
-    --flash "MDK-ARM/project/firmware.hex" \
-    --device "STM32F407ZGTx" \
+    --flash "build/firmware.hex" \
+    --device "<芯片型号>" \
     --skip-monitor
 ```
 
@@ -90,7 +90,7 @@ python "SKILL/workflows/agent_flash.py" \
     {"type": "jlink", "available": true, "devices": ["SEGGER J-Link..."]}
   ],
   "serial_ports": [
-    {"port": "COM3", "description": "USB Serial Port"}
+    {"port": "<串口号>", "description": "USB Serial Port"}
   ]
 }
 ```
@@ -104,8 +104,8 @@ python "SKILL/workflows/agent_flash.py" \
 | `--project` | 是 | 工程目录 | `D:/project/firmware` |
 | `--flash` | 是 | 烧录文件（支持 .elf/.hex/.bin） | `MDK-ARM/project/firmware.hex` |
 | `--addr` | 否 | 烧录地址（仅 .bin 需要） | `0x08000000` |
-| `--device` | 是 | 芯片型号 | `STM32F407ZGTx` |
-| `--serial` | 否 | 串口端口 | `COM3` |
+| `--device` | 是 | 芯片型号 | `<芯片型号>` |
+| `--serial` | 否 | 串口端口 | `<串口号>` |
 | `--flasher` | 否 | 烧录器类型 | `jlink` (默认) |
 
 ---
@@ -115,7 +115,7 @@ python "SKILL/workflows/agent_flash.py" \
 | 系列 | 型号示例 |
 |------|----------|
 | STM32F1 | `STM32F103RC`, `STM32F103ZE` |
-| STM32F4 | `STM32F407ZG`, `STM32F407ZGTx`, `STM32F429ZI` |
+| STM32F4 | `STM32F407ZG`, `STM32F407ZGTx`, `STM32F429ZI` |  # 具体型号保留供参考
 | STM32H7 | `STM32H743ZI`, `STM32H743ZIT6` |
 | APM32 | `APM32F407ZG`, `APM32F103RC` |
 

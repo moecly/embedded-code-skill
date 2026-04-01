@@ -4,13 +4,14 @@ Agent 专用烧录脚本 - 提供简单的命令行接口
 
 用法:
     python agent_flash.py --project <工程目录> [--flash <文件>] [--device <芯片>] [--serial <端口>]
-    python agent_flash.py --detect              # 仅检测环境
-    python agent_flash.py --help               # 显示帮助
+    python agent_flash.py [--flash <文件>]              # 使用当前工作目录
+    python agent_flash.py --detect                      # 仅检测环境
+    python agent_flash.py --help                        # 显示帮助
 
 示例:
-    python agent_flash.py --project D:/project/firmware
-    python agent_flash.py --project D:/project/firmware --flash MDK-ARM/project/project.hex
-    python agent_flash.py --project D:/project/firmware --flash firmware.bin --addr 0x08000000
+    python agent_flash.py --flash firmware.hex
+    python agent_flash.py --project D:/project/firmware --flash firmware.hex
+    python agent_flash.py --flash firmware.bin --addr 0x08000000
 """
 import sys
 import os
@@ -192,7 +193,7 @@ def interactive_config(project_dir):
             config['serial']['port'] = serial_input if serial_input else serial_ports[0]
         else:
             print("  串口: ", end="")
-            config['serial']['port'] = input().strip() or 'COM3'
+            config['serial']['port'] = input().strip() or ''
         
         print(f"  波特率 (默认 115200): ", end="")
         baud_input = input().strip()
@@ -222,8 +223,8 @@ def interactive_config(project_dir):
         speed_input = input().strip()
         config['flasher']['speed'] = int(speed_input) if speed_input else 4000
         
-        print(f"  串口 (如 COM3): ", end="")
-        config['serial']['port'] = input().strip() or 'COM3'
+        print(f"  串口 (如 <串口号>): ", end="")
+        config['serial']['port'] = input().strip() or ''
         
         print(f"  波特率 (默认 115200): ", end="")
         baud_input = input().strip()
@@ -234,10 +235,10 @@ def interactive_config(project_dir):
     else:
         print("无效选择，使用默认配置")
         config['flasher']['type'] = 'jlink'
-        config['flasher']['device'] = 'STM32F407ZG'
+        config['flasher']['device'] = '<芯片型号>'
         config['flasher']['interface'] = 'SWD'
         config['flasher']['speed'] = 4000
-        config['serial']['port'] = 'COM3'
+        config['serial']['port'] = '<串口号>'
         config['serial']['baudrate'] = 115200
         config['debug']['max_retries'] = 3
     
@@ -396,7 +397,7 @@ def get_flash_info(flash_path, addr=None):
         return None, f"错误: 不支持的文件格式 {ext}，仅支持 .elf/.hex/.bin"
 
 
-def flash_with_jlink(flash_info, device="STM32F407ZG", speed=4000, interface="SWD"):
+def flash_with_jlink(flash_info, device="<芯片型号>", speed=4000, interface="SWD"):
     """使用 JLink 烧录"""
     flash_path = flash_info['path']
     print(f"\n烧录: {flash_path}")
@@ -499,22 +500,22 @@ def main():
   检测环境:
     python agent_flash.py --detect
   
-  烧录并监控:
-    python agent_flash.py --project D:/project/firmware --flash MDK-ARM/project/project.hex
+  烧录并监控 (使用当前目录):
+    python agent_flash.py --flash firmware.hex
   
   烧录 bin 文件:
-    python agent_flash.py --project D:/project/firmware --flash firmware.bin --addr 0x08000000
+    python agent_flash.py --flash firmware.bin --addr 0x08000000
         """
     )
     
-    parser.add_argument('--project', '-p', help='工程目录路径')
+    parser.add_argument('--project', '-p', default='.', help='工程目录路径 (默认: 当前工作目录)')
     parser.add_argument('--flash', help='烧录文件（支持 .elf/.hex/.bin）')
     parser.add_argument('--addr', help='烧录地址（仅 .bin 需要，如 0x08000000）')
     parser.add_argument('--flasher', '-f', default='jlink', 
                        choices=['jlink', 'stlink', 'cmsis_dap'],
                        help='烧录器类型 (默认: jlink)')
-    parser.add_argument('--device', '-d', help='芯片型号 (如 STM32F407ZGTx)')
-    parser.add_argument('--serial', '-s', help='串口端口 (如 COM3)')
+    parser.add_argument('--device', '-d', help='芯片型号 (如 <芯片型号>)')
+    parser.add_argument('--serial', '-s', help='串口端口 (如 <串口号>)')
     parser.add_argument('--baudrate', '-b', type=int, default=115200,
                        help='串口波特率 (默认: 115200)')
     parser.add_argument('--speed', type=int, default=4000,
@@ -559,12 +560,11 @@ def main():
                 print("  无可用串口")
         return
     
-    if not args.project:
-        print("错误: 需要指定 --project 参数")
-        parser.print_help()
-        sys.exit(1)
+    if not args.project or args.project == '.':
+        project_dir = os.getcwd()
+    else:
+        project_dir = normalize_path(args.project)
     
-    project_dir = normalize_path(args.project)
     project_dir, error = validate_path(project_dir)
     if error:
         print(f"错误: {error}")
@@ -615,7 +615,7 @@ def main():
             print(f"错误: {error}")
             sys.exit(1)
         
-        device = args.device or config.get('flasher', {}).get('device', 'STM32F407ZG')
+        device = args.device or config.get('flasher', {}).get('device', '<芯片型号>')
         flasher_type = args.flasher or config.get('flasher', {}).get('type', 'jlink')
         
         if flasher_type == 'jlink':

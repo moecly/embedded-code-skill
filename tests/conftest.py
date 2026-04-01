@@ -39,21 +39,21 @@ def temp_config_dir(tmp_path):
 
 @pytest.fixture
 def sample_config():
-    """示例配置内容"""
+    """示例配置内容（测试用）"""
     return {
         'project': {
             'name': 'test_project',
-            'type': 'keil',
-            'path': 'MDK-ARM/project.uvprojx'
+            'type': 'cmake',
+            'path': 'build/project.elf'
         },
         'flasher': {
             'type': 'jlink',
-            'device': 'STM32F407ZG',
+            'device': '<芯片型号>',
             'speed': 4000,
             'interface': 'SWD'
         },
         'serial': {
-            'port': 'COM3',
+            'port': 'TEST_PORT',
             'baudrate': 115200
         },
         'debug': {
@@ -99,7 +99,7 @@ def mock_jlink_flash_fail(mocker):
 def mock_serial_ports(mocker):
     """模拟串口列表"""
     mock_ports = [
-        {'port': 'COM3', 'name': 'COM3', 'description': 'USB Serial Port', 'hwid': 'USB VID:PID=1234:5678'}
+        {'port': 'TEST_PORT', 'name': 'TEST_PORT', 'description': 'USB Serial Port', 'hwid': 'USB VID:PID=1234:5678'}
     ]
     return mock_ports
 
