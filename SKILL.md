@@ -208,9 +208,9 @@ debug:
 |------|------|
 | `project.type` | 项目类型：`keil` / `makefile` / `cmake` |
 | `flasher.type` | 烧录器：`jlink` / `stlink` / `cmsis_dap` |
-| `flasher.device` | 芯片型号，如 `STM32F103RC` |
+| `flasher.device` | 芯片型号 |
 | `flasher.interface` | 接口：`SWD` 或 `JTAG` |
-| `serial.port` | 串口号，如 `COM3` |
+| `serial.port` | 串口号 |
 | `serial.baudrate` | 波特率 |
 
 ---
@@ -232,7 +232,7 @@ A: 请用户检查：
 **Q: .bin 文件如何烧录？**
 A: 必须指定烧录地址：
 ```bash
-python "SKILL/workflows/agent_flash.py" --project "<目录>" --flash firmware.bin --addr 0x08000000
+python "SKILL/workflows/agent_flash.py" --flash firmware.bin --addr 0x08000000
 ```
 
 **Q: ST-Link 不支持 elf？**
@@ -251,11 +251,8 @@ pytest tests/ -v
 
 | 文件 | 何时加载 |
 |------|---------|
-| `references/quickstart.md` | Agent 快速上手 |
-| `references/config.md` | 配置参考 |
-| `references/flashers.md` | 烧录器参考 |
-| `references/extending.md` | 扩展参考 |
-| `references/compilers.md` | 编译器参考 |
+| `references/agent-guide.md` | Agent 工作流指南，首次使用时必读 |
+| `references/config.md` | 需要生成或解析 `configs/project.yaml` 时 |
 
 ---
 

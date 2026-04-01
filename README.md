@@ -128,7 +128,10 @@ embedded-code-skill/
 │   ├── builder/         # 编译器适配
 │   ├── flashers/       # 烧录器适配
 │   └── monitor/        # 串口监控
-└── references/           # Agent 参考文档
+└── references/          # Agent 参考文档
+    ├── README.md
+    ├── agent-guide.md
+    └── config.md
 ```
 
 ---

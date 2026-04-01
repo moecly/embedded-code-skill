@@ -1,44 +1,61 @@
-# Agent 使用指南
+# Agent 工作流指南
 
 ## 核心原则
 
-作为 Agent，使用这个 skill 时应该：
-1. **先检测环境** - 了解可用的烧录器和串口
-2. **使用 --init 初始化配置** - 脚本输出 JSON，Agent 解析后询问用户
-3. **生成配置文件** - Agent 根据用户回答生成 `configs/project.yaml`
-4. **后续直接烧录** - 配置文件存在后，脚本无需交互
+1. **先检测环境** — 运行 `--detect --json` 了解可用烧录器和串口
+2. **初始化配置** — 运行 `--init` 获取 JSON，解析后询问用户生成配置
+3. **生成配置文件** — 根据用户回答写入 `configs/project.yaml`
+4. **后续直接烧录** — 配置文件存在后，脚本无需交互
 
 ---
 
-## Agent 工作流
-
-### 首次配置流程
+## 首次配置流程
 
 ```bash
-# 1. 检测环境
+# 1. 检测环境（查看烧录器、串口、芯片连接状态）
 python "SKILL/workflows/agent_flash.py" --detect --json
 
-# 2. 初始化配置 (输出 JSON)
+# 2. 初始化配置（输出 JSON 供解析）
 python "SKILL/workflows/agent_flash.py" --init
 ```
 
 `--init` 输出示例：
 ```json
 {
-  "project": {"name": "firmware", "type": "keil", "path": "..."},
-  "flashers": [{"type": "jlink", "name": "J-Link"}],
+  "project": {"name": "firmware", "type": "keil", "path": "MDK-ARM/project.uvprojx"},
+  "flashers": [
+    {
+      "type": "jlink",
+      "name": "J-Link",
+      "device_connected": true,
+      "device_message": "芯片连接正常"
+    }
+  ],
   "available_flashers": ["jlink"],
-  "serial_ports": [{"port": "COM3", "description": "USB Serial Port"}]
+  "serial_ports": [
+    {"port": "COM3", "description": "USB Serial Port"}
+  ]
 }
 ```
 
-Agent 根据此输出询问用户：
-- 选择哪个烧录器？
-- 芯片型号是什么？
-- 使用哪个串口？
-- 波特率是多少？
+**注意**：`device_connected` 为 `false` 时，`device_message` 会包含错误原因和排查建议。此时应告知用户检查硬件连接，不要继续烧录。
 
-然后 Agent 生成 `configs/project.yaml`：
+### Agent 询问用户
+
+根据 `--init` 输出，向用户确认：
+
+| 信息 | 来源 | 说明 |
+|------|------|------|
+| 烧录器 | `flashers` 列表 | 如有多个，让用户选择 |
+| 芯片连接状态 | `device_connected` | 为 false 时提示用户检查硬件 |
+| 芯片型号 | 需询问用户 | 脚本无法自动检测 |
+| 串口 | `serial_ports` 列表 | 如有多个，让用户选择 |
+| 波特率 | 需询问用户 | 默认 115200 |
+
+### 生成配置文件
+
+用户确认后，Agent 生成 `<项目目录>/configs/project.yaml`：
+
 ```yaml
 project:
   name: "firmware"
@@ -58,9 +75,11 @@ debug:
   max_retries: 3
 ```
 
-### 后续烧录流程
+---
 
-配置文件存在后，无需交互：
+## 后续烧录流程
+
+配置文件存在后，直接烧录：
 
 ```bash
 python "SKILL/workflows/agent_flash.py" --flash "build/firmware.hex"
@@ -70,13 +89,13 @@ python "SKILL/workflows/agent_flash.py" --flash "build/firmware.hex"
 
 ## 常用场景
 
-### 场景 1：快速检测环境
+### 检测环境
 
 ```bash
 python "SKILL/workflows/agent_flash.py" --detect
 ```
 
-### 场景 2：烧录 + 串口监控
+### 烧录 + 串口监控
 
 ```bash
 python "SKILL/workflows/agent_flash.py" \
@@ -85,7 +104,7 @@ python "SKILL/workflows/agent_flash.py" \
     --serial "<串口号>"
 ```
 
-### 场景 3：编译 + 烧录 + 监控
+### 编译 + 烧录 + 监控
 
 ```bash
 python "SKILL/workflows/agent_flash.py" \
@@ -93,7 +112,7 @@ python "SKILL/workflows/agent_flash.py" \
     --flash "build/firmware.hex"
 ```
 
-### 场景 4：跳过监控，只烧录
+### 仅烧录，跳过监控
 
 ```bash
 python "SKILL/workflows/agent_flash.py" \
@@ -103,63 +122,40 @@ python "SKILL/workflows/agent_flash.py" \
 
 ---
 
-## 路径规范（重要！）
+## 路径规范
 
-### 路径规则
+| 规则 | 说明 |
+|------|------|
+| 使用正斜杠 `/` | 跨平台兼容 |
+| 相对路径 | 相对于 `--project` 或当前目录 |
+| 使用引号 | 路径含空格时必须加引号 |
 
-| 规则 | 说明 | 示例 |
-|------|------|------|
-| **使用正斜杠** `/` | 跨平台兼容 | `D:/project/firmware.hex` |
-| **相对路径** | 相对于 `--project` | `MDK-ARM/project/firmware.hex` |
-| **始终使用引号** | 防止空格问题 | `"D:/My Project/firmware.hex"` |
-
-### 正确 vs 错误
-
-```bash
-# ✅ 正确写法
---project "D:/project/firmware"
---flash "MDK-ARM/project/firmware.hex"
---flash "../output/firmware.hex"
-
-# ❌ 错误写法
---flash "D:\My Projects\firmware\firmware.hex"
---flash D:/project/firmware.hex
-```
-
-### 路径解析说明
-
-脚本会自动处理以下情况：
-1. 反斜杠 `\` → 自动转换为正斜杠 `/`
-2. 相对路径 → 自动基于 `--project` 解析
-3. 路径不存在 → 报错并提示正确路径
+脚本自动处理：
+1. 反斜杠 `\` → 正斜杠 `/`
+2. 相对路径 → 基于当前目录或 `--project` 解析
+3. 路径不存在 → 报错
 
 ---
 
 ## 检测输出格式
 
+`--detect --json` 输出：
 ```json
 {
   "flashers": [
-    {"type": "jlink", "available": true, "devices": ["SEGGER J-Link..."]}
+    {
+      "type": "jlink",
+      "available": true,
+      "devices": ["SEGGER J-Link Commander V8.10k..."],
+      "device_connected": true,
+      "device_message": "芯片连接正常"
+    }
   ],
   "serial_ports": [
-    {"port": "<串口号>", "description": "USB Serial Port"}
+    {"port": "COM3", "description": "USB Serial Port"}
   ]
 }
 ```
-
----
-
-## 常见参数
-
-| 参数 | 必填 | 说明 | 示例 |
-|------|------|------|------|
-| `--project` | 是 | 工程目录 | `D:/project/firmware` |
-| `--flash` | 是 | 烧录文件（支持 .elf/.hex/.bin） | `MDK-ARM/project/firmware.hex` |
-| `--addr` | 否 | 烧录地址（仅 .bin 需要） | `0x08000000` |
-| `--device` | 是 | 芯片型号 | `<芯片型号>` |
-| `--serial` | 否 | 串口端口 | `<串口号>` |
-| `--flasher` | 否 | 烧录器类型 | `jlink` (默认) |
 
 ---
 
@@ -168,7 +164,7 @@ python "SKILL/workflows/agent_flash.py" \
 | 系列 | 型号示例 |
 |------|----------|
 | STM32F1 | `STM32F103RC`, `STM32F103ZE` |
-| STM32F4 | `STM32F407ZG`, `STM32F407ZGTx`, `STM32F429ZI` |  # 具体型号保留供参考
+| STM32F4 | `STM32F407ZG`, `STM32F407ZGTx`, `STM32F429ZI` |
 | STM32H7 | `STM32H743ZI`, `STM32H743ZIT6` |
 | APM32 | `APM32F407ZG`, `APM32F103RC` |
 
@@ -192,15 +188,6 @@ python "SKILL/workflows/agent_flash.py" \
 
 **Q: 路径有空格怎么办？**
 A: 用引号包裹路径：`"D:/My Project/firmware.hex"`
-
-**Q: Windows 反斜杠可以用吗？**
-A: 可以，脚本会自动转换，但不建议使用
-
-**Q: 相对路径怎么写？**
-A: 相对于 `--project` 参数指定的目录
-
-**Q: 找不到文件怎么办？**
-A: 检查路径是否正确，使用正斜杠 `/`
 
 **Q: 工具运行出错？**
 A: 询问用户是否执行自动化测试：
